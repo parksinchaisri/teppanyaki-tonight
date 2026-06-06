@@ -66,7 +66,10 @@ export function ChallengeShell({ def, renderControls, state, onChange, wide }: P
   );
 
   function simulate() {
-    const result: ChallengeResult = runChallenge(config, def.key, params);
+    const result: ChallengeResult = runChallenge(config, def.key, {
+      ...params,
+      strictBatching: settings.strictBatching,
+    });
     const id = uuid();
     const saved: SavedRun = { id, label: `Config ${runs.length + 1}`, config: structuredClone(config), result };
     onChange((s) => ({ ...s, runs: [...s.runs, saved], selectedId: id, selectedRun: representativeRun(result) }));
@@ -299,27 +302,22 @@ function SubmitBlock({
   onSubmit: () => void;
 }) {
   return (
-    <>
+    <div className="mt-4 flex flex-wrap items-center gap-3">
       <button
         onClick={onSubmit}
         disabled={!best}
-        className="mt-4 w-full rounded-md bg-[var(--color-accent-green)] px-4 py-2.5 font-medium text-black disabled:opacity-40"
+        className="w-auto rounded-md bg-[var(--color-accent-green)] px-8 py-2 font-medium text-black disabled:opacity-40"
       >
         Submit best to leaderboard
       </button>
-      {status.msg && (
-        <p
-          className={`mt-2 text-xs ${
-            status.kind === 'err' ? 'text-[var(--color-accent-red)]' : 'text-[var(--color-text-secondary)]'
-          }`}
-        >
-          {status.msg}
-        </p>
-      )}
-      <p className="mt-1 text-xs text-[var(--color-text-muted)]">
-        Submits your best average profit ({best ? money(best.result.avgProfit) : '—'}) for this challenge.
-      </p>
-    </>
+      <span
+        className={`text-xs ${
+          status.kind === 'err' ? 'text-[var(--color-accent-red)]' : 'text-[var(--color-text-muted)]'
+        }`}
+      >
+        {status.msg || `Submits your best average profit (${best ? money(best.result.avgProfit) : '—'}).`}
+      </span>
+    </div>
   );
 }
 
@@ -357,8 +355,8 @@ function ResultsView({
   const run = result.runs[selectedRun];
   return (
     <div className="space-y-5">
-      {/* 1 · Config summary bar */}
-      <div className="grid gap-3 sm:grid-cols-4">
+      {/* 1 · Config summary bar — compact 2×2 dashboard readout */}
+      <div className="grid grid-cols-2 gap-3">
         <Stat label="Avg profit" value={money(result.avgProfit)} tone={result.avgProfit < 0 ? 'red' : 'green'} />
         <Stat label="Best night" value={money(result.maxProfit)} />
         <Stat label="Avg lost guests" value={result.avgLost.toFixed(0)} />
@@ -396,9 +394,9 @@ function ResultsView({
 function Stat({ label, value, tone }: { label: string; value: string; tone?: 'green' | 'red' }) {
   const color = tone === 'red' ? 'var(--color-accent-red)' : tone === 'green' ? 'var(--color-accent-green)' : 'var(--color-text-primary)';
   return (
-    <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-3">
+    <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3">
       <div className="text-xs uppercase tracking-wide text-[var(--color-text-muted)]">{label}</div>
-      <div className="mt-1 font-mono text-xl" style={{ color }}>
+      <div className="mt-0.5 font-mono text-2xl" style={{ color }}>
         {value}
       </div>
     </div>

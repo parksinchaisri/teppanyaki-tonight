@@ -12,7 +12,7 @@ interface Props {
   onSpeed: (s: number) => void;
 }
 
-const SPEEDS = [0.5, 1, 2, 4];
+const SPEEDS = [0.25, 0.5, 1, 2, 4];
 
 export function TimelineScrubber({ time, min, max, playing, speed, onSeek, onTogglePlay, onStep, onSpeed }: Props) {
   return (

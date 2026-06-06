@@ -25,6 +25,7 @@ export interface ParamOverrides {
   patienceMean?: number; // minutes  (default 28)
   defaultBarSeats?: number; // seats    (default 40)
   defaultTables?: number; // tables   (default 15)
+  strictBatching?: boolean; // eight mode: no time-pressure partial seatings (default off in engine)
 }
 
 export interface SimConfig {

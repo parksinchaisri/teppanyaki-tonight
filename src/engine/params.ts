@@ -59,10 +59,5 @@ export const PARAMS = {
   BAR_SEATS_MAX: 87,
   TABLES_MIN: 10,
   TABLES_MAX: 19,
-  // Relationship: tables = 19 - Math.floor((barSeats - 15) / 8)
+  // Relationship: see barSeatsToTables() in simulation.ts
 } as const;
-
-// Derive table count from bar seat count (the trade-off slider relationship).
-export function tablesForBarSeats(barSeats: number): number {
-  return PARAMS.TABLES_MAX - Math.floor((barSeats - PARAMS.BAR_SEATS_MIN) / PARAMS.SEATS_PER_TABLE_REMOVED);
-}

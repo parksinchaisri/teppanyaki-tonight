@@ -32,6 +32,15 @@ function effectiveParams(o?: ParamOverrides) {
   };
 }
 
+// Derive dining-table count from bar-seat count. The first step is intentionally
+// asymmetric (1 extra seat removes a table), then bands of 8:
+//   15→19, 16-23→18, 24-31→17, 32-39→16, 40-47→15, 48-55→14,
+//   56-63→13, 64-71→12, 72-79→11, 80-87→10
+export function barSeatsToTables(barSeats: number): number {
+  if (barSeats <= 15) return 19;
+  return 18 - Math.floor((barSeats - 16) / 8);
+}
+
 // ── Advertising model ──────────────────────────────────────────────────────
 
 // Overall demand multiplier given budget (diminishing returns curve).
@@ -140,6 +149,10 @@ class MinHeap {
 export function runSimulation(config: SimConfig, seed: number, overrides?: ParamOverrides): RunStats {
   const rand = mulberry32(seed);
   const P = effectiveParams(overrides);
+  // Strict batching: in 'eight' mode, never force-seat a partial table under time
+  // pressure — only seat once a full batch (≥6) naturally accumulates. Off by
+  // default in the engine so the calibration test script keeps the lenient behaviour.
+  const strictBatching = overrides?.strictBatching ?? false;
 
   // Advertising effects on demand. The ad-driven portion of demand is uncertain:
   // a per-run multiplicative noise term makes a bigger ad bet a riskier bet, so
@@ -209,12 +222,13 @@ export function runSimulation(config: SimConfig, seed: number, overrides?: Param
     }
 
     if (batchSize < minBatch) {
-      if (mode === 'eight') {
+      if (mode === 'eight' && !strictBatching) {
         // Time-pressure override: only hold the table if the oldest waiter is still patient.
         const oldestWait = now - barQueue[0].arrivalTime;
         if (oldestWait < P.PATIENCE_MEAN) return null;
         if (batch.length === 0) return null; // nothing to seat even under pressure
       } else {
+        // Strict (or non-eight modes): keep waiting for a full batch.
         return null;
       }
     }

@@ -30,7 +30,7 @@ export function AnimationPanel({
     return saved != null ? clamp(saved) : min;
   });
   const [playing, setPlaying] = useState(false);
-  const [speed, setSpeed] = useState(1);
+  const [speed, setSpeed] = useState(0.5);
   const raf = useRef<number | null>(null);
   const last = useRef<number>(0);
 
@@ -64,9 +64,10 @@ export function AnimationPanel({
     const tick = (now: number) => {
       const dt = (now - last.current) / 1000;
       last.current = now;
-      // 1× = 60 sim-minutes per real second of playback.
+      // 1× = 30 sim-minutes per real second of playback (halved from 60 — the old
+      // rate felt ~2× too fast).
       setTime((t) => {
-        const next = t + dt * 60 * speed;
+        const next = t + dt * 30 * speed;
         if (next >= max) {
           setPlaying(false);
           return max;

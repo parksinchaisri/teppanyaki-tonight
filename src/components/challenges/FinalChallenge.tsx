@@ -1,5 +1,6 @@
 import { CHALLENGE_BY_KEY } from '../../challenges/definitions';
-import { PARAMS, tablesForBarSeats } from '../../engine/params';
+import { PARAMS } from '../../engine/params';
+import { barSeatsToTables } from '../../engine/simulation';
 import type { AdCampaign, BatchingMode } from '../../engine/types';
 import { ChallengeShell, type ChallengeContentProps } from './ChallengeShell';
 
@@ -94,7 +95,7 @@ export function FinalChallenge({ state, onChange }: ChallengeContentProps) {
       onChange={onChange}
       wide
       renderControls={(config, patch) => {
-        const tables = tablesForBarSeats(config.barSeats);
+        const tables = barSeatsToTables(config.barSeats);
         return (
           <div className="grid gap-x-8 gap-y-4 md:grid-cols-3">
             {/* Column 1 — Batching matrix */}
@@ -145,7 +146,7 @@ export function FinalChallenge({ state, onChange }: ChallengeContentProps) {
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-[var(--color-text-secondary)]">Bar seats</span>
                     <span className="font-mono text-[var(--color-text-primary)]">
-                      {config.barSeats} seats ↔ {tables} tables
+                      {config.barSeats} seats → {tables} tables
                     </span>
                   </div>
                   <input
@@ -153,11 +154,11 @@ export function FinalChallenge({ state, onChange }: ChallengeContentProps) {
                     className="mt-1 w-full"
                     min={PARAMS.BAR_SEATS_MIN}
                     max={PARAMS.BAR_SEATS_MAX}
-                    step={8}
+                    step={1}
                     value={config.barSeats}
                     onChange={(e) => {
                       const v = Number(e.target.value);
-                      patch({ barSeats: v, tables: tablesForBarSeats(v) });
+                      patch({ barSeats: v, tables: barSeatsToTables(v) });
                     }}
                   />
                 </div>

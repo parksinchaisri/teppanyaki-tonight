@@ -8,6 +8,7 @@ export interface ClassSettings {
   leaderboardMetric: 'avgProfit' | 'maxProfit';
   lockChallenges: boolean;
   activeLeaderboardChallenge: string;
+  strictBatching: boolean; // table-of-8 only (no time-pressure partial seatings)
 }
 
 export const DEFAULT_SETTINGS: ClassSettings = {
@@ -18,6 +19,7 @@ export const DEFAULT_SETTINGS: ClassSettings = {
   leaderboardMetric: 'avgProfit',
   lockChallenges: true,
   activeLeaderboardChallenge: 'batching',
+  strictBatching: true,
 };
 
 export const DEFAULT_PARAMS: ParamOverrides = {};

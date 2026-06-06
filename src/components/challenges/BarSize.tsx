@@ -1,5 +1,6 @@
 import { CHALLENGE_BY_KEY } from '../../challenges/definitions';
-import { PARAMS, tablesForBarSeats } from '../../engine/params';
+import { PARAMS } from '../../engine/params';
+import { barSeatsToTables } from '../../engine/simulation';
 import type { BatchingMode } from '../../engine/types';
 import { RadioGroup } from '../shared/RadioGroup';
 import { Slider } from '../shared/Slider';
@@ -13,7 +14,7 @@ export function BarSize({ state, onChange }: ChallengeContentProps) {
       onChange={onChange}
       renderControls={(config, patch) => {
         const on = config.batching.early === 'eight';
-        const tables = tablesForBarSeats(config.barSeats);
+        const tables = barSeatsToTables(config.barSeats);
         return (
           <div className="space-y-5">
             <RadioGroup
@@ -31,9 +32,9 @@ export function BarSize({ state, onChange }: ChallengeContentProps) {
               value={config.barSeats}
               min={PARAMS.BAR_SEATS_MIN}
               max={PARAMS.BAR_SEATS_MAX}
-              step={8}
-              onChange={(v) => patch({ barSeats: v, tables: tablesForBarSeats(v) })}
-              format={(v) => `${v} bar seats  ↔  ${tablesForBarSeats(v)} dining tables`}
+              step={1}
+              onChange={(v) => patch({ barSeats: v, tables: barSeatsToTables(v) })}
+              format={(v) => `${v} bar seats  →  ${barSeatsToTables(v)} dining tables`}
             />
             <div className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface-raised)] p-3">
               <div className="flex items-center justify-between text-sm">

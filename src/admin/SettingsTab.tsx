@@ -12,7 +12,9 @@ interface Props {
   params: ParamOverrides;
 }
 
-const PARAM_FIELDS: { key: keyof ParamOverrides; label: string; placeholder: number; unit: string }[] = [
+type NumericParamKey = Exclude<keyof ParamOverrides, 'strictBatching'>;
+
+const PARAM_FIELDS: { key: NumericParamKey; label: string; placeholder: number; unit: string }[] = [
   { key: 'dinnerMargin', label: 'Dinner margin', placeholder: 12, unit: '$/cover' },
   { key: 'drinkMargin', label: 'Drink margin', placeholder: 6, unit: '$/drink' },
   { key: 'fixedCostEvening', label: 'Fixed cost per evening', placeholder: 3600, unit: '$' },
@@ -44,6 +46,12 @@ export function SettingsTab({ classCode, settings, params }: Props) {
         <Toggle label="Auto-debrief visible" desc="Show computed insight sentences below the charts." value={settings.autoDebrief} onChange={(v) => patch({ autoDebrief: v })} />
         <Toggle label="Utilisation meter visible" desc="Reveal the chef utilisation card in results." value={settings.utilizationVisible} onChange={(v) => patch({ utilizationVisible: v })} />
         <Toggle label="Lock challenges" desc="Require students to submit each challenge before unlocking the next." value={settings.lockChallenges} onChange={(v) => patch({ lockChallenges: v })} />
+        <Toggle
+          label="Strict table-of-8 only (no partial seatings)"
+          desc="When on, tables only seat when a full table of 8 is ready. When off, tables can seat 6–8 (more flexible, allows partial fills)."
+          value={settings.strictBatching}
+          onChange={(v) => patch({ strictBatching: v })}
+        />
       </div>
 
       <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
