@@ -1,4 +1,4 @@
-import { collection, doc, getDoc, getDocs, onSnapshot, updateDoc, writeBatch } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, onSnapshot, setDoc, updateDoc, writeBatch } from 'firebase/firestore';
 import { db, firebaseConfigured } from './config';
 import { DEFAULT_PARAMS, DEFAULT_SETTINGS, type ClassDoc, type ClassSettings } from './types';
 import type { ParamOverrides } from '../engine/types';
@@ -27,6 +27,29 @@ export async function getClassDoc(classCode: string): Promise<ClassDoc | null> {
     settings: { ...DEFAULT_SETTINGS, ...(data.settings ?? {}) },
     params: readParams(data),
   };
+}
+
+// Bootstrap a brand-new class document (no PIN required to reach this — the
+// Firestore rules only allow `create` when the document does not already exist).
+export async function createClass(
+  classCode: string,
+  pin: string,
+): Promise<{ ok: boolean; error?: string }> {
+  if (!firebaseConfigured) return { ok: true }; // demo mode — nothing to persist
+  const ref = doc(db, 'classes', classCode);
+  try {
+    const existing = await getDoc(ref);
+    if (existing.exists()) return { ok: false, error: 'Class code already taken. Choose a different one.' };
+    await setDoc(ref, {
+      instructorPin: pin,
+      createdAt: Date.now(),
+      settings: { ...DEFAULT_SETTINGS },
+      params: {},
+    });
+    return { ok: true };
+  } catch {
+    return { ok: false, error: 'Could not create the class. Please try again.' };
+  }
 }
 
 export async function getSettings(classCode: string): Promise<ClassSettings> {

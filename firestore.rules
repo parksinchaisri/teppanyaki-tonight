@@ -5,7 +5,9 @@ service cloud.firestore {
     // Anyone can read a class document to validate the class code.
     match /classes/{classCode} {
       allow read: if true;
-      allow create: if false;  // classes are created via the Firebase console only
+      // Allow first-time creation from the admin "Create new class" screen, but
+      // never overwrite an existing class document this way.
+      allow create: if !exists(/databases/$(database)/documents/classes/$(classCode));
       // Allow updates so the instructor dashboard can live-save the `settings`
       // object (PIN is verified client-side). No auth, by design for the classroom.
       allow update: if true;
