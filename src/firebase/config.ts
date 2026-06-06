@@ -10,6 +10,11 @@ const firebaseConfig = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID,
 };
 
+// Log the resolved config at startup. If projectId is undefined/empty here, the
+// build didn't pick up the VITE_FIREBASE_* env vars and the app will silently
+// fall back to demo mode (firebaseConfigured = false).
+console.log('Firebase config:', { projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID });
+
 export const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app);
 

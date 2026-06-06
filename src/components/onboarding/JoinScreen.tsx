@@ -37,7 +37,8 @@ export function JoinScreen() {
       }
       setSession({ classCode: code, studentId, displayName: displayName.trim() });
       navigate('/play');
-    } catch {
+    } catch (error) {
+      console.error('Firebase connection error:', error);
       setError('Could not connect. Please try again.');
       setBusy(false);
     }
