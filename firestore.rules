@@ -1,0 +1,39 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Anyone can read a class document to validate the class code.
+    match /classes/{classCode} {
+      allow read: if true;
+      allow create: if false;  // classes are created via the Firebase console only
+      // Allow updates so the instructor dashboard can live-save the `settings`
+      // object (PIN is verified client-side). No auth, by design for the classroom.
+      allow update: if true;
+
+      // Student writes their own result; leaderboard is public within the class.
+      match /studentResults/{docId} {
+        allow read: if true;
+        allow create, update: if request.auth == null
+          && request.resource.data.classCode == classCode
+          && request.resource.data.bestAvgProfit is number
+          && request.resource.data.studentName.size() >= 2
+          && request.resource.data.studentName.size() <= 30;
+        allow delete: if true;  // instructor "Reset Class Data" (PIN-gated client-side)
+      }
+
+      // Reflections: write-only from students; reads scoped to the class path
+      // (anyone with the code can read — acceptable for a classroom tool).
+      match /reflections/{docId} {
+        allow create: if request.auth == null
+          && request.resource.data.response.size() >= 10;
+        allow read: if true;
+        allow delete: if true;  // instructor "Reset Class Data" (PIN-gated client-side)
+      }
+
+      match /students/{studentId} {
+        allow create, update: if true;
+        allow read: if true;
+      }
+    }
+  }
+}
