@@ -4,11 +4,12 @@ import { firebaseConfigured } from '../firebase/config';
 import { DEFAULT_PARAMS, DEFAULT_SETTINGS, type ClassSettings } from '../firebase/types';
 import type { ParamOverrides } from '../engine/types';
 import { SettingsTab } from './SettingsTab';
+import { SessionControlTab } from './SessionControlTab';
 import { LiveBoardTab } from './LiveBoardTab';
 import { ResultsTab } from './ResultsTab';
 import { ReflectionsTab } from './ReflectionsTab';
 
-type AdminTab = 'settings' | 'live' | 'results' | 'reflections';
+type AdminTab = 'settings' | 'session' | 'live' | 'results' | 'reflections';
 
 export function AdminApp() {
   const [classCode, setClassCode] = useState('');
@@ -203,6 +204,7 @@ export function AdminApp() {
 
   const TABS: { key: AdminTab; label: string }[] = [
     { key: 'settings', label: 'Settings' },
+    { key: 'session', label: 'Session Control' },
     { key: 'live', label: 'Live Board' },
     { key: 'results', label: 'Results' },
     { key: 'reflections', label: 'Reflections' },
@@ -252,6 +254,7 @@ export function AdminApp() {
           </div>
         )}
         {tab === 'settings' && <SettingsTab classCode={classCode} settings={settings} params={params} />}
+        {tab === 'session' && <SessionControlTab classCode={classCode} settings={settings} params={params} />}
         {tab === 'live' && <LiveBoardTab classCode={classCode} settings={settings} />}
         {tab === 'results' && <ResultsTab classCode={classCode} />}
         {tab === 'reflections' && <ReflectionsTab classCode={classCode} />}

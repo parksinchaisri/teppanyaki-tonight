@@ -5,6 +5,8 @@ import type { ChallengeDef, ParamDefaults } from '../../challenges/definitions';
 import { useApp } from '../../store/appContext';
 import { submitResult } from '../../firebase/leaderboard';
 import { submitReflection } from '../../firebase/reflections';
+import { logAttempt } from '../../firebase/attempts';
+import { confidenceRatingEnabledFor, maxAttemptsFor, reflectionsRequiredFor } from '../../firebase/types';
 import { firebaseConfigured } from '../../firebase/config';
 import { money, pct, uuid } from '../../lib/format';
 import { OutcomesTable } from '../results/OutcomesTable';
@@ -48,12 +50,23 @@ interface Props extends ChallengeContentProps {
   def: ChallengeDef;
   renderControls: (config: SimConfig, patch: (p: Partial<SimConfig>) => void) => ReactNode;
   wide?: boolean; // Final Challenge uses a full-width multi-column config layout
+  // Applied to the config immediately before it is simulated and saved. The
+  // Final Challenge uses it to substitute class defaults for levers the
+  // instructor has switched off.
+  sanitizeConfig?: (c: SimConfig) => SimConfig;
 }
 
-export function ChallengeShell({ def, renderControls, state, onChange, wide }: Props) {
-  const { session, settings, params, markCompleted } = useApp();
+export function ChallengeShell({ def, renderControls, state, onChange, wide, sanitizeConfig }: Props) {
+  const { session, settings, params, markCompleted, attemptCounts, bumpAttempt } = useApp();
   const [showCompare, setShowCompare] = useState(false);
   const [status, setStatus] = useState<{ kind: 'idle' | 'ok' | 'err'; msg: string }>({ kind: 'idle', msg: '' });
+  // Non-null while the confidence prompt is open (the pending run is waiting on it).
+  const [askingConfidence, setAskingConfidence] = useState(false);
+
+  const attemptsUsed = attemptCounts[def.key] ?? 0;
+  const maxAttempts = maxAttemptsFor(settings, def.key);
+  const limitReached = attemptsUsed >= maxAttempts;
+  const askConfidence = confidenceRatingEnabledFor(settings, def.key);
 
   const { config, runs } = state;
   const patch = (p: Partial<SimConfig>) => onChange((s) => ({ ...s, config: { ...s.config, ...p } }));
@@ -65,14 +78,38 @@ export function ChallengeShell({ def, renderControls, state, onChange, wide }: P
     [runs],
   );
 
-  function simulate() {
-    const result: ChallengeResult = runChallenge(config, def.key, {
+  // A brand-new configuration run. Consumes one attempt and appends a row to the
+  // permanent `attempts` audit trail. Re-selecting a saved config does neither.
+  function simulate(confidenceRating: number | null) {
+    if (limitReached) return;
+    const effective = sanitizeConfig ? sanitizeConfig(config) : config;
+    const result: ChallengeResult = runChallenge(effective, def.key, {
       ...params,
       strictBatching: settings.strictBatching,
     });
     const id = uuid();
-    const saved: SavedRun = { id, label: `Config ${runs.length + 1}`, config: structuredClone(config), result };
+    const saved: SavedRun = { id, label: `Config ${runs.length + 1}`, config: structuredClone(effective), result };
     onChange((s) => ({ ...s, runs: [...s.runs, saved], selectedId: id, selectedRun: representativeRun(result) }));
+
+    const attemptNumber = bumpAttempt(def.key);
+    if (session) {
+      void logAttempt({
+        classCode: session.classCode,
+        studentId: session.studentId,
+        displayName: session.displayName,
+        challengeKey: def.key,
+        attemptNumber,
+        config: saved.config,
+        result,
+        confidenceRating,
+      }).catch(() => {});
+    }
+  }
+
+  function handleSimulateClick() {
+    if (limitReached) return;
+    if (askConfidence) setAskingConfidence(true);
+    else simulate(null);
   }
 
   function selectConfig(r: SavedRun) {
@@ -120,12 +157,35 @@ export function ChallengeShell({ def, renderControls, state, onChange, wide }: P
   // ── Shared sub-blocks ──────────────────────────────────────────────────────
 
   const simulateButton = (
-    <button
-      onClick={simulate}
-      className="w-full rounded-md bg-[var(--color-accent)] px-4 py-2.5 font-medium text-white"
-    >
-      ▶ Simulate 20 nights
-    </button>
+    <div className="space-y-2">
+      <button
+        onClick={handleSimulateClick}
+        disabled={limitReached}
+        className="w-full rounded-md bg-[var(--color-accent)] px-4 py-2.5 font-medium text-white disabled:cursor-not-allowed disabled:opacity-40"
+      >
+        ▶ Simulate 20 nights
+      </button>
+      {limitReached ? (
+        <p className="text-center text-xs text-[var(--color-accent-amber)]">
+          Attempt limit reached ({attemptsUsed}/{maxAttempts}) for this challenge.
+        </p>
+      ) : (
+        maxAttempts < 10 && (
+          <p className="text-center text-xs text-[var(--color-text-muted)]">
+            Attempt {attemptsUsed + 1} of {maxAttempts}
+          </p>
+        )
+      )}
+      {askingConfidence && (
+        <ConfidencePrompt
+          onCancel={() => setAskingConfidence(false)}
+          onPick={(rating) => {
+            setAskingConfidence(false);
+            simulate(rating);
+          }}
+        />
+      )}
+    </div>
   );
 
   const savedConfigsList = runs.length > 0 && (
@@ -163,7 +223,7 @@ export function ChallengeShell({ def, renderControls, state, onChange, wide }: P
     </div>
   );
 
-  const reflectionBlock = settings.reflectionsRequired && selected && (
+  const reflectionBlock = reflectionsRequiredFor(settings, def.key) && selected && (
     <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
       <h3 className="text-sm font-semibold">Reflection</h3>
       <p className="mt-1 text-sm text-[var(--color-text-secondary)]">{def.reflectionQuestion}</p>
@@ -288,6 +348,36 @@ export function ChallengeShell({ def, renderControls, state, onChange, wide }: P
       </div>
 
       {showCompare && <ComparePanel runs={runs} onClose={() => setShowCompare(false)} />}
+    </div>
+  );
+}
+
+// Shown when `confidenceRatingEnabled` is on for this challenge: the run does
+// not start until the student commits to a 1–5 rating.
+function ConfidencePrompt({ onPick, onCancel }: { onPick: (rating: number) => void; onCancel: () => void }) {
+  return (
+    <div className="rounded-md border border-[var(--color-accent)]/50 bg-[var(--color-accent)]/10 p-3">
+      <p className="text-xs text-[var(--color-text-secondary)]">
+        How confident are you that this strategy will perform well?
+      </p>
+      <div className="mt-2 flex items-center gap-1.5">
+        {[1, 2, 3, 4, 5].map((n) => (
+          <button
+            key={n}
+            onClick={() => onPick(n)}
+            className="flex-1 rounded-md border border-[var(--color-border)] py-1.5 font-mono text-sm hover:border-[var(--color-accent)] hover:bg-[var(--color-accent)]/15"
+          >
+            {n}
+          </button>
+        ))}
+      </div>
+      <div className="mt-2 flex items-center justify-between text-[10px] uppercase tracking-wide text-[var(--color-text-muted)]">
+        <span>Not at all</span>
+        <span>Very</span>
+      </div>
+      <button onClick={onCancel} className="mt-2 text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]">
+        Cancel
+      </button>
     </div>
   );
 }

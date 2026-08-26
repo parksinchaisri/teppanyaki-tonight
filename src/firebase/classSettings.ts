@@ -81,6 +81,21 @@ export async function updateSettings(classCode: string, settings: ClassSettings)
   await updateDoc(doc(db, 'classes', classCode), { settings });
 }
 
+// Write individual settings fields without rewriting the whole `settings` map.
+// The Session Control tab flips several toggles in quick succession, and a
+// whole-object write built from a stale snapshot silently reverts whichever
+// change has not round-tripped yet. Keys may be nested paths relative to
+// `settings` (e.g. 'maxAttempts.batching').
+export async function updateSettingsFields(
+  classCode: string,
+  fields: Record<string, unknown>,
+): Promise<void> {
+  if (!firebaseConfigured) return;
+  const payload: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(fields)) payload[`settings.${k}`] = v;
+  await updateDoc(doc(db, 'classes', classCode), payload);
+}
+
 // Persist per-class engine overrides. Undefined fields are stripped so absent
 // values fall back to engine defaults.
 export async function updateParams(classCode: string, params: ParamOverrides): Promise<void> {

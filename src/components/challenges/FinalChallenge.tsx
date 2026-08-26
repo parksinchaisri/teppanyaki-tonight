@@ -1,7 +1,9 @@
 import { CHALLENGE_BY_KEY } from '../../challenges/definitions';
 import { PARAMS } from '../../engine/params';
-import { barSeatsToTables } from '../../engine/simulation';
-import type { AdCampaign, BatchingMode } from '../../engine/types';
+import { barSeatsToTables, defaultConfig } from '../../engine/simulation';
+import type { AdCampaign, BatchingMode, SimConfig } from '../../engine/types';
+import { useApp } from '../../store/appContext';
+import { finalChallengeLevers } from '../../firebase/types';
 import { ChallengeShell, type ChallengeContentProps } from './ChallengeShell';
 
 const MODES: { mode: BatchingMode; label: string }[] = [
@@ -88,17 +90,60 @@ function InlineSlider({
 }
 
 export function FinalChallenge({ state, onChange }: ChallengeContentProps) {
+  const { settings, params } = useApp();
+  const levers = finalChallengeLevers(settings);
+  const classDefaults = defaultConfig(
+    {},
+    { defaultBarSeats: params.defaultBarSeats, defaultTables: params.defaultTables },
+  );
+
+  // A lever the instructor switched off is not just hidden — the engine must run
+  // on the class default for that parameter rather than whatever the student's
+  // config happens to still hold.
+  function sanitizeConfig(c: SimConfig): SimConfig {
+    const out = { ...c };
+    if (!levers.batching) out.batching = { ...classDefaults.batching };
+    if (!levers.barSize) {
+      out.barSeats = classDefaults.barSeats;
+      out.tables = classDefaults.tables;
+    }
+    if (!levers.diningTime) {
+      out.diningTimeEarly = classDefaults.diningTimeEarly;
+      out.diningTimePeak = classDefaults.diningTimePeak;
+      out.diningTimeLate = classDefaults.diningTimeLate;
+    }
+    if (!levers.advertising) {
+      out.adBudget = classDefaults.adBudget;
+      out.adCampaign = classDefaults.adCampaign;
+      out.openingTime = classDefaults.openingTime;
+    }
+    return out;
+  }
+
+  const showBarColumn = levers.barSize || levers.diningTime;
+  const columnCount = [levers.batching, showBarColumn, levers.advertising].filter(Boolean).length;
+  const gridCols = columnCount >= 3 ? 'md:grid-cols-3' : columnCount === 2 ? 'md:grid-cols-2' : 'md:grid-cols-1';
+
   return (
     <ChallengeShell
       def={CHALLENGE_BY_KEY.finalChallenge}
       state={state}
       onChange={onChange}
       wide
+      sanitizeConfig={sanitizeConfig}
       renderControls={(config, patch) => {
         const tables = barSeatsToTables(config.barSeats);
         return (
-          <div className="grid gap-x-8 gap-y-4 md:grid-cols-3">
+          <div className={`grid gap-x-8 gap-y-4 ${gridCols}`}>
+            {columnCount === 0 && (
+              <p className="text-sm text-[var(--color-text-secondary)]">
+                Your instructor has switched off every configurable lever for this challenge — press Simulate to run
+                the class default configuration.
+              </p>
+            )}
+
             {/* Column 1 — Batching matrix */}
+            {levers.batching && (
             <div>
               <ColTitle>Batching</ColTitle>
               <table className="w-full text-xs">
@@ -137,11 +182,14 @@ export function FinalChallenge({ state, onChange }: ChallengeContentProps) {
                 </tbody>
               </table>
             </div>
+            )}
 
             {/* Column 2 — Bar & Timing */}
+            {showBarColumn && (
             <div>
-              <ColTitle>Bar &amp; Timing</ColTitle>
+              <ColTitle>{levers.barSize ? (levers.diningTime ? 'Bar & Timing' : 'Bar') : 'Dining Time'}</ColTitle>
               <div className="space-y-2">
+                {levers.barSize && (
                 <div>
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-[var(--color-text-secondary)]">Bar seats</span>
@@ -162,13 +210,20 @@ export function FinalChallenge({ state, onChange }: ChallengeContentProps) {
                     }}
                   />
                 </div>
-                <InlineSlider label="Early" value={config.diningTimeEarly} min={45} max={75} onChange={(v) => patch({ diningTimeEarly: v })} fmt={(v) => `${v} min`} />
-                <InlineSlider label="Peak" value={config.diningTimePeak} min={45} max={75} onChange={(v) => patch({ diningTimePeak: v })} fmt={(v) => `${v} min`} />
-                <InlineSlider label="Late" value={config.diningTimeLate} min={45} max={75} onChange={(v) => patch({ diningTimeLate: v })} fmt={(v) => `${v} min`} />
+                )}
+                {levers.diningTime && (
+                  <>
+                    <InlineSlider label="Early" value={config.diningTimeEarly} min={45} max={75} onChange={(v) => patch({ diningTimeEarly: v })} fmt={(v) => `${v} min`} />
+                    <InlineSlider label="Peak" value={config.diningTimePeak} min={45} max={75} onChange={(v) => patch({ diningTimePeak: v })} fmt={(v) => `${v} min`} />
+                    <InlineSlider label="Late" value={config.diningTimeLate} min={45} max={75} onChange={(v) => patch({ diningTimeLate: v })} fmt={(v) => `${v} min`} />
+                  </>
+                )}
               </div>
             </div>
+            )}
 
             {/* Column 3 — Advertising */}
+            {levers.advertising && (
             <div>
               <ColTitle>Advertising</ColTitle>
               <div className="space-y-2.5">
@@ -197,6 +252,7 @@ export function FinalChallenge({ state, onChange }: ChallengeContentProps) {
                 </div>
               </div>
             </div>
+            )}
           </div>
         );
       }}

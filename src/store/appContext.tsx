@@ -9,6 +9,7 @@ import {
   type SetStateAction,
 } from 'react';
 import { subscribeSettings } from '../firebase/classSettings';
+import { subscribeAttemptCounts } from '../firebase/attempts';
 import { DEFAULT_PARAMS, DEFAULT_SETTINGS, type ClassSettings } from '../firebase/types';
 import type { ParamOverrides } from '../engine/types';
 import type { ChallengeUIState } from '../components/challenges/ChallengeShell';
@@ -67,6 +68,11 @@ interface AppContextValue {
   // scrubber stays where the student left it across tab switches.
   animationTime: Record<string, number>;
   setAnimationTime: Dispatch<SetStateAction<Record<string, number>>>;
+  // Per-challenge count of brand-new Simulate runs by this student, used to
+  // enforce `maxAttempts`. Server-backed (so it survives a refresh) but bumped
+  // locally on each run so the limit applies immediately and in demo mode.
+  attemptCounts: Record<string, number>;
+  bumpAttempt: (challengeKey: string) => number;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -78,6 +84,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [completed, setCompleted] = useState<Record<string, boolean>>(() => loadCompleted());
   const [challengeStates, setChallengeStates] = useState<Record<string, ChallengeUIState>>({});
   const [animationTime, setAnimationTime] = useState<Record<string, number>>({});
+  const [serverAttempts, setServerAttempts] = useState<Record<string, number>>({});
+  const [localAttempts, setLocalAttempts] = useState<Record<string, number>>({});
 
   useEffect(() => {
     if (!session?.classCode) {
@@ -91,6 +99,31 @@ export function AppProvider({ children }: { children: ReactNode }) {
     });
     return unsub;
   }, [session?.classCode]);
+
+  useEffect(() => {
+    if (!session?.classCode || !session.studentId) {
+      setServerAttempts({});
+      return;
+    }
+    return subscribeAttemptCounts(session.classCode, session.studentId, setServerAttempts);
+  }, [session?.classCode, session?.studentId]);
+
+  // The server count is authoritative once it catches up; the local count covers
+  // the write round-trip (and demo mode, where nothing is persisted at all).
+  const attemptCounts = useMemo(() => {
+    const merged: Record<string, number> = { ...serverAttempts };
+    for (const [k, v] of Object.entries(localAttempts)) {
+      merged[k] = Math.max(merged[k] ?? 0, v);
+    }
+    return merged;
+  }, [serverAttempts, localAttempts]);
+
+  // Returns the 1-indexed attempt number this run should be recorded under.
+  const bumpAttempt = (challengeKey: string): number => {
+    const next = (attemptCounts[challengeKey] ?? 0) + 1;
+    setLocalAttempts((prev) => ({ ...prev, [challengeKey]: Math.max(prev[challengeKey] ?? 0, next) }));
+    return next;
+  };
 
   const setSession = (s: Session | null) => {
     if (s) saveSession(s);
@@ -118,8 +151,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setChallengeStates,
       animationTime,
       setAnimationTime,
+      attemptCounts,
+      bumpAttempt,
     }),
-    [session, settings, params, completed, challengeStates, animationTime],
+    [session, settings, params, completed, challengeStates, animationTime, attemptCounts],
   );
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

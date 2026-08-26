@@ -1,15 +1,22 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useApp } from '../../store/appContext';
 import { subscribeLeaderboard } from '../../firebase/leaderboard';
 import { firebaseConfigured } from '../../firebase/config';
-import type { LeaderboardRow } from '../../firebase/types';
-import { CHALLENGES } from '../../challenges/definitions';
+import { activeChallengeKeys, leaderboardVisibleFor, type LeaderboardRow } from '../../firebase/types';
+import { CHALLENGE_BY_KEY } from '../../challenges/definitions';
 import { LeaderboardView } from '../leaderboard/LeaderboardView';
 
 export function LeaderboardTab() {
   const { session, settings } = useApp();
+  const keys = useMemo(() => activeChallengeKeys(settings), [settings]);
+  const list = useMemo(() => keys.map((k) => CHALLENGE_BY_KEY[k]).filter(Boolean), [keys]);
   const [challenge, setChallenge] = useState(settings.activeLeaderboardChallenge || 'batching');
   const [rows, setRows] = useState<LeaderboardRow[]>([]);
+
+  // Keep the selected board inside the instructor's playlist.
+  useEffect(() => {
+    if (list.length && !keys.includes(challenge)) setChallenge(list[0].key);
+  }, [keys, list, challenge]);
 
   useEffect(() => {
     if (!session) return;
@@ -17,12 +24,16 @@ export function LeaderboardTab() {
     return unsub;
   }, [session, challenge]);
 
+  // Hidden by the instructor until enough of the class has submitted — this is
+  // what keeps a student's first attempt independent of everyone else's.
+  const revealed = leaderboardVisibleFor(settings, challenge);
+
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold">Class Leaderboard</h1>
         <div className="flex flex-wrap gap-1.5">
-          {CHALLENGES.map((c) => (
+          {list.map((c) => (
             <button
               key={c.key}
               onClick={() => setChallenge(c.key)}
@@ -44,7 +55,13 @@ export function LeaderboardTab() {
         </div>
       )}
 
-      <LeaderboardView rows={rows} metric={settings.leaderboardMetric} highlightStudentId={session?.studentId} />
+      {revealed ? (
+        <LeaderboardView rows={rows} metric={settings.leaderboardMetric} highlightStudentId={session?.studentId} />
+      ) : (
+        <div className="rounded-xl border border-dashed border-[var(--color-border)] p-12 text-center text-[var(--color-text-secondary)]">
+          🙈 Your instructor will reveal results after everyone has submitted.
+        </div>
+      )}
     </div>
   );
 }

@@ -32,6 +32,17 @@ service cloud.firestore {
         allow delete: if true;  // instructor "Reset Class Data" (PIN-gated client-side)
       }
 
+      // Attempts: the permanent audit trail — one row per brand-new Simulate
+      // run. Append-only by design; "Reset Class Data" deliberately leaves it
+      // intact, so no delete rule here.
+      match /attempts/{docId} {
+        allow create: if request.auth == null
+          && request.resource.data.challengeKey is string
+          && request.resource.data.studentId is string
+          && request.resource.data.attemptNumber is number;
+        allow read: if true;
+      }
+
       match /students/{studentId} {
         allow create, update: if true;
         allow read: if true;
