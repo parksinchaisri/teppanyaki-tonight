@@ -43,6 +43,14 @@ service cloud.firestore {
         allow read: if true;
       }
 
+      // Live session flow (phase, current challenge, timer, leaderboard view).
+      // A single document per class holding orchestration state only — no
+      // student data — so it follows the same open-classroom pattern.
+      match /live/{docId} {
+        allow read: if true;
+        allow create, update: if true;
+      }
+
       match /students/{studentId} {
         allow create, update: if true;
         allow read: if true;

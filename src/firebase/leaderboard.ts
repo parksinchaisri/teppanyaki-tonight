@@ -35,6 +35,9 @@ export async function submitResult(args: SubmitArgs): Promise<void> {
     bestConfig: improved ? args.config : (prev?.bestConfig ?? args.config),
     attempts: (prev?.attempts ?? 0) + 1,
     lastSubmittedAt: Date.now(),
+    // A manual submit always clears the forced-submit flag, even if the round
+    // was force-closed earlier and wrote this document.
+    autoSubmitted: false,
   });
 }
 
@@ -50,6 +53,7 @@ function rowFromDoc(id: string, data: Record<string, unknown>): LeaderboardRow {
     attempts: Number(data.attempts ?? 0),
     lastSubmittedAt: Number(data.lastSubmittedAt ?? 0),
     bestConfig: data.bestConfig as SimConfig,
+    autoSubmitted: data.autoSubmitted === true,
   };
 }
 

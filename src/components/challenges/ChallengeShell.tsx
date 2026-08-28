@@ -7,6 +7,8 @@ import { submitResult } from '../../firebase/leaderboard';
 import { submitReflection } from '../../firebase/reflections';
 import { logAttempt } from '../../firebase/attempts';
 import { confidenceRatingEnabledFor, maxAttemptsFor, reflectionsRequiredFor } from '../../firebase/types';
+import { isRoundClosed } from '../../firebase/liveSession';
+import { useCountdown } from '../shared/useCountdown';
 import { firebaseConfigured } from '../../firebase/config';
 import { money, pct, uuid } from '../../lib/format';
 import { OutcomesTable } from '../results/OutcomesTable';
@@ -57,7 +59,7 @@ interface Props extends ChallengeContentProps {
 }
 
 export function ChallengeShell({ def, renderControls, state, onChange, wide, sanitizeConfig }: Props) {
-  const { session, settings, params, markCompleted, attemptCounts, bumpAttempt } = useApp();
+  const { session, settings, params, markCompleted, attemptCounts, bumpAttempt, liveState } = useApp();
   const [showCompare, setShowCompare] = useState(false);
   const [status, setStatus] = useState<{ kind: 'idle' | 'ok' | 'err'; msg: string }>({ kind: 'idle', msg: '' });
   // Non-null while the confidence prompt is open (the pending run is waiting on it).
@@ -67,6 +69,17 @@ export function ChallengeShell({ def, renderControls, state, onChange, wide, san
   const maxAttempts = maxAttemptsFor(settings, def.key);
   const limitReached = attemptsUsed >= maxAttempts;
   const askConfidence = confidenceRatingEnabledFor(settings, def.key);
+
+  // The instructor has closed this round — simulating is over, but everything
+  // already run stays viewable.
+  const roundClosed = isRoundClosed(settings, liveState, def.key);
+  const simulateBlocked = limitReached || roundClosed;
+  // The shared class clock, shown only while this challenge's round is running.
+  const timerActive =
+    settings.liveSessionMode &&
+    liveState.phase === 'timed_round' &&
+    liveState.currentChallenge === def.key &&
+    liveState.timer?.endsAt != null;
 
   const { config, runs } = state;
   const patch = (p: Partial<SimConfig>) => onChange((s) => ({ ...s, config: { ...s.config, ...p } }));
@@ -81,7 +94,7 @@ export function ChallengeShell({ def, renderControls, state, onChange, wide, san
   // A brand-new configuration run. Consumes one attempt and appends a row to the
   // permanent `attempts` audit trail. Re-selecting a saved config does neither.
   function simulate(confidenceRating: number | null) {
-    if (limitReached) return;
+    if (simulateBlocked) return;
     const effective = sanitizeConfig ? sanitizeConfig(config) : config;
     const result: ChallengeResult = runChallenge(effective, def.key, {
       ...params,
@@ -107,7 +120,7 @@ export function ChallengeShell({ def, renderControls, state, onChange, wide, san
   }
 
   function handleSimulateClick() {
-    if (limitReached) return;
+    if (simulateBlocked) return;
     if (askConfidence) setAskingConfidence(true);
     else simulate(null);
   }
@@ -160,12 +173,14 @@ export function ChallengeShell({ def, renderControls, state, onChange, wide, san
     <div className="space-y-2">
       <button
         onClick={handleSimulateClick}
-        disabled={limitReached}
+        disabled={simulateBlocked}
         className="w-full rounded-md bg-[var(--color-accent)] px-4 py-2.5 font-medium text-white disabled:cursor-not-allowed disabled:opacity-40"
       >
         ▶ Simulate 20 nights
       </button>
-      {limitReached ? (
+      {roundClosed ? (
+        <p className="text-center text-xs text-[var(--color-accent-amber)]">This round has ended.</p>
+      ) : limitReached ? (
         <p className="text-center text-xs text-[var(--color-accent-amber)]">
           Attempt limit reached ({attemptsUsed}/{maxAttempts}) for this challenge.
         </p>
@@ -266,9 +281,12 @@ export function ChallengeShell({ def, renderControls, state, onChange, wide, san
   );
 
   const header = (
-    <div>
-      <h2 className="text-2xl font-bold">{def.title}</h2>
-      <p className="mt-2 max-w-3xl text-sm text-[var(--color-text-secondary)]">{def.description}</p>
+    <div className="flex items-start justify-between gap-4">
+      <div>
+        <h2 className="text-2xl font-bold">{def.title}</h2>
+        <p className="mt-2 max-w-3xl text-sm text-[var(--color-text-secondary)]">{def.description}</p>
+      </div>
+      {timerActive && <CountdownBadge endsAt={liveState.timer?.endsAt ?? null} />}
     </div>
   );
 
@@ -348,6 +366,30 @@ export function ChallengeShell({ def, renderControls, state, onChange, wide, san
       </div>
 
       {showCompare && <ComparePanel runs={runs} onClose={() => setShowCompare(false)} />}
+    </div>
+  );
+}
+
+// The same shared class clock Theater Mode projects, so students can pace
+// themselves without switching windows.
+function CountdownBadge({ endsAt }: { endsAt: number | null }) {
+  const { label, expired } = useCountdown(endsAt);
+  return (
+    <div
+      className={`shrink-0 rounded-lg border px-4 py-2 text-center ${
+        expired
+          ? 'animate-pulse border-[var(--color-accent-red)] bg-[var(--color-accent-red)]/10'
+          : 'border-[var(--color-border)] bg-[var(--color-surface)]'
+      }`}
+    >
+      <div className="text-[10px] uppercase tracking-wide text-[var(--color-text-muted)]">
+        {expired ? "Time's up" : 'Time left'}
+      </div>
+      <div
+        className={`font-mono text-2xl tabular-nums ${expired ? 'text-[var(--color-accent-red)]' : ''}`}
+      >
+        {label}
+      </div>
     </div>
   );
 }

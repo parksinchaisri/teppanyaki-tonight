@@ -1,1 +1,1 @@
-{"root":["./vite.config.ts","./scripts/testengine.ts"],"version":"6.0.3"}
+{"root":["./vite.config.ts","./scripts/testengine.ts","./scripts/testlivesession.ts"],"version":"6.0.3"}

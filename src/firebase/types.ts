@@ -139,6 +139,9 @@ export interface LeaderboardRow {
   attempts: number;
   lastSubmittedAt: number;
   bestConfig: SimConfig;
+  // True when the result was written by "End Round Now" rather than by the
+  // student pressing Submit. Absent on documents written before iteration 8.
+  autoSubmitted: boolean;
 }
 
 export interface ReflectionRow {
@@ -170,6 +173,34 @@ export interface AttemptRow {
   confidenceRating: number | null;
   timestamp: number;
 }
+
+// ── Iteration 8: live session (theater mode) orchestration ─────────────────
+// Stored at classes/{classCode}/live/state — kept out of `settings` because it
+// changes many times during a single class, while settings rarely change.
+
+export type LivePhase = 'lobby' | 'briefing' | 'timed_round' | 'round_results' | 'wrap_up';
+
+export interface LiveTimer {
+  durationSeconds: number;
+  startedAt: number | null; // ms epoch, set once when the instructor starts it
+  endsAt: number | null; // startedAt + durationSeconds * 1000, computed once
+}
+
+export interface LiveSessionState {
+  phase: LivePhase;
+  currentChallenge: string | null; // challenge key; null in lobby/wrap_up
+  timer: LiveTimer | null;
+  roundView: 'round' | 'cumulative';
+}
+
+export const DEFAULT_LIVE_STATE: LiveSessionState = {
+  phase: 'lobby',
+  currentChallenge: null,
+  timer: null,
+  roundView: 'round',
+};
+
+export const DEFAULT_ROUND_SECONDS = 300; // 5 minutes
 
 export interface StudentRow {
   id: string;

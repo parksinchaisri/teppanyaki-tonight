@@ -22,13 +22,23 @@ export function ResultsTab({ classCode }: { classCode: string }) {
 
   function exportCSV() {
     const csv = toCSV(
-      ['Anonymous ID', 'studentName', 'challengeKey', 'bestAvgProfit', 'attempts', 'lastSubmittedAt', 'bestConfig'],
+      [
+        'Anonymous ID',
+        'studentName',
+        'challengeKey',
+        'bestAvgProfit',
+        'attempts',
+        'autoSubmitted',
+        'lastSubmittedAt',
+        'bestConfig',
+      ],
       sorted.map((r) => [
         r.studentId,
         r.studentName,
         r.challengeKey,
         Math.round(r.bestAvgProfit),
         r.attempts,
+        r.autoSubmitted,
         new Date(r.lastSubmittedAt).toISOString(),
         JSON.stringify(r.bestConfig),
       ]),

@@ -3,6 +3,7 @@ import { useApp } from './store/appContext';
 import { JoinScreen } from './components/onboarding/JoinScreen';
 import { MainApp } from './components/MainApp';
 import { AdminApp } from './admin/AdminApp';
+import { TheaterMode } from './admin/TheaterMode';
 
 export default function App() {
   const { session } = useApp();
@@ -11,6 +12,7 @@ export default function App() {
       <Route path="/" element={session ? <Navigate to="/play" replace /> : <JoinScreen />} />
       <Route path="/play" element={session ? <MainApp /> : <Navigate to="/" replace />} />
       <Route path="/admin" element={<AdminApp />} />
+      <Route path="/admin/theater" element={<TheaterMode />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

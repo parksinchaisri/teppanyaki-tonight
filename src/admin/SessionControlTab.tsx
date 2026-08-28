@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { updateSettingsFields } from '../firebase/classSettings';
 import { subscribeLeaderboard } from '../firebase/leaderboard';
 import { subscribeStudents } from '../firebase/attempts';
+import { startClass, subscribeLiveState } from '../firebase/liveSession';
 import { firebaseConfigured } from '../firebase/config';
 import {
   ALL_CHALLENGE_KEYS,
@@ -11,9 +12,11 @@ import {
   leaderboardVisibleFor,
   maxAttemptsFor,
   reflectionsRequiredFor,
+  DEFAULT_LIVE_STATE,
   type ClassSettings,
   type FinalChallengeLevers,
   type LeaderboardRow,
+  type LiveSessionState,
   type StudentRow,
 } from '../firebase/types';
 import { CHALLENGE_BY_KEY } from '../challenges/definitions';
@@ -39,13 +42,23 @@ const LEVER_SOURCE: Record<keyof FinalChallengeLevers, string> = {
   advertising: 'advertising',
 };
 
+const PHASE_LABELS: Record<LiveSessionState['phase'], string> = {
+  lobby: 'Lobby — not started',
+  briefing: 'Briefing',
+  timed_round: 'Round in progress',
+  round_results: 'Round results',
+  wrap_up: 'Wrap-up',
+};
+
 export function SessionControlTab({ classCode, settings, params }: Props) {
   const [saving, setSaving] = useState(false);
   const [rows, setRows] = useState<LeaderboardRow[]>([]);
   const [students, setStudents] = useState<StudentRow[]>([]);
+  const [live, setLive] = useState<LiveSessionState>(DEFAULT_LIVE_STATE);
 
   useEffect(() => subscribeLeaderboard(classCode, null, setRows), [classCode]);
   useEffect(() => subscribeStudents(classCode, setStudents), [classCode]);
+  useEffect(() => subscribeLiveState(classCode, setLive), [classCode]);
 
   const keys = useMemo(() => activeChallengeKeys(settings), [settings]);
   const levers = finalChallengeLevers(settings);
@@ -124,6 +137,41 @@ export function SessionControlTab({ classCode, settings, params }: Props) {
         <span className="text-xs text-[var(--color-text-muted)]">
           {firebaseConfigured ? (saving ? 'Saving…' : 'Live-saved') : 'Demo mode — not persisted'}
         </span>
+      </div>
+
+      {/* Theater Mode launcher + a read-only view of where the class currently is,
+          so an instructor working from this tab alone still knows the phase. */}
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
+        <div className="text-sm">
+          <div className="flex items-center gap-2">
+            <span className="text-[var(--color-text-secondary)]">Live session:</span>
+            <span className="font-medium">{PHASE_LABELS[live.phase]}</span>
+            {live.currentChallenge && (
+              <span className="text-[var(--color-text-secondary)]">
+                · {CHALLENGE_BY_KEY[live.currentChallenge]?.title ?? live.currentChallenge}
+              </span>
+            )}
+          </div>
+          <p className="mt-1 text-xs text-[var(--color-text-muted)]">
+            Theater Mode is the projected host view — lobby, briefing, timer and results.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {live.phase === 'lobby' && (
+            <button
+              onClick={() => void startClass(classCode, settings)}
+              className="rounded-md bg-[var(--color-accent-green)] px-4 py-2 text-sm font-medium text-black"
+            >
+              ▶ Start Class
+            </button>
+          )}
+          <button
+            onClick={() => window.open(`${import.meta.env.BASE_URL}admin/theater`, '_blank')}
+            className="rounded-md bg-[var(--color-accent)] px-4 py-2 text-sm font-medium text-white"
+          >
+            Open Theater Mode ↗
+          </button>
+        </div>
       </div>
 
       {/* ── Live Session Mode ──────────────────────────────────────────────── */}

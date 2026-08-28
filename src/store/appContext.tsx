@@ -10,7 +10,14 @@ import {
 } from 'react';
 import { subscribeSettings } from '../firebase/classSettings';
 import { subscribeAttemptCounts } from '../firebase/attempts';
-import { DEFAULT_PARAMS, DEFAULT_SETTINGS, type ClassSettings } from '../firebase/types';
+import { subscribeLiveState } from '../firebase/liveSession';
+import {
+  DEFAULT_LIVE_STATE,
+  DEFAULT_PARAMS,
+  DEFAULT_SETTINGS,
+  type ClassSettings,
+  type LiveSessionState,
+} from '../firebase/types';
 import type { ParamOverrides } from '../engine/types';
 import type { ChallengeUIState } from '../components/challenges/ChallengeShell';
 
@@ -73,6 +80,9 @@ interface AppContextValue {
   // locally on each run so the limit applies immediately and in demo mode.
   attemptCounts: Record<string, number>;
   bumpAttempt: (challengeKey: string) => number;
+  // Instructor-driven session flow (iteration 8). Only meaningful when
+  // settings.liveSessionMode is on; self-paced classes ignore it entirely.
+  liveState: LiveSessionState;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -84,6 +94,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [completed, setCompleted] = useState<Record<string, boolean>>(() => loadCompleted());
   const [challengeStates, setChallengeStates] = useState<Record<string, ChallengeUIState>>({});
   const [animationTime, setAnimationTime] = useState<Record<string, number>>({});
+  const [liveState, setLiveState] = useState<LiveSessionState>(DEFAULT_LIVE_STATE);
   const [serverAttempts, setServerAttempts] = useState<Record<string, number>>({});
   const [localAttempts, setLocalAttempts] = useState<Record<string, number>>({});
 
@@ -98,6 +109,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setParams(p);
     });
     return unsub;
+  }, [session?.classCode]);
+
+  useEffect(() => {
+    if (!session?.classCode) {
+      setLiveState(DEFAULT_LIVE_STATE);
+      return;
+    }
+    return subscribeLiveState(session.classCode, setLiveState);
   }, [session?.classCode]);
 
   useEffect(() => {
@@ -153,8 +172,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setAnimationTime,
       attemptCounts,
       bumpAttempt,
+      liveState,
     }),
-    [session, settings, params, completed, challengeStates, animationTime, attemptCounts],
+    [session, settings, params, completed, challengeStates, animationTime, attemptCounts, liveState],
   );
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

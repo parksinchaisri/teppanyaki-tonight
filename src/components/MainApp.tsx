@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useApp } from '../store/appContext';
+import { LobbyWaiting } from './onboarding/LobbyWaiting';
 import { PrepareTab } from './tabs/PrepareTab';
 import { ChallengesTab } from './tabs/ChallengesTab';
 import { LeaderboardTab } from './tabs/LeaderboardTab';
@@ -13,8 +14,14 @@ const TABS: { key: Tab; label: string }[] = [
 ];
 
 export function MainApp() {
-  const { session, setSession } = useApp();
+  const { session, setSession, settings, liveState } = useApp();
   const [tab, setTab] = useState<Tab>('prepare');
+
+  // In a live class nothing is available until the instructor starts. Self-paced
+  // classes never see this — liveSessionMode gates it.
+  if (settings.liveSessionMode && liveState.phase === 'lobby') {
+    return <LobbyWaiting />;
+  }
 
   return (
     <div className="min-h-screen">
