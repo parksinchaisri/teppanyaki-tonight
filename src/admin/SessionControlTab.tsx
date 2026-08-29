@@ -11,6 +11,7 @@ import {
   finalChallengeLevers,
   leaderboardVisibleFor,
   maxAttemptsFor,
+  theaterJoinUrlDisplay,
   reflectionsRequiredFor,
   DEFAULT_LIVE_STATE,
   type ClassSettings,
@@ -171,6 +172,36 @@ export function SessionControlTab({ classCode, settings, params }: Props) {
           >
             Open Theater Mode ↗
           </button>
+        </div>
+
+        {/* What the projected lobby shows for joining. */}
+        <div className="mt-3 w-full border-t border-[var(--color-border)] pt-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <label className="flex items-center gap-2 text-sm">
+              <span className="text-[var(--color-text-secondary)]">Lobby join link</span>
+              <select
+                value={theaterJoinUrlDisplay(settings)}
+                onChange={(e) => patch({ theaterJoinUrlDisplay: e.target.value as ClassSettings['theaterJoinUrlDisplay'] })}
+                className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface-raised)] px-3 py-2 text-sm outline-none"
+              >
+                <option value="full">Show full site URL</option>
+                <option value="custom">Show a custom link</option>
+                <option value="hidden">Hide the link (class code only)</option>
+              </select>
+            </label>
+            {theaterJoinUrlDisplay(settings) === 'custom' && (
+              <input
+                value={settings.theaterCustomJoinUrl ?? ''}
+                onChange={(e) => patch({ theaterCustomJoinUrl: e.target.value })}
+                placeholder="e.g. tinyurl.com/teppanyaki"
+                className="min-w-0 flex-1 rounded-md border border-[var(--color-border)] bg-[var(--color-surface-raised)] px-3 py-2 font-mono text-sm outline-none focus:border-[var(--color-accent)]"
+              />
+            )}
+          </div>
+          <p className="mt-1 text-xs text-[var(--color-text-muted)]">
+            The class code is always shown on the lobby screen — students need it even when they get the link
+            elsewhere.
+          </p>
         </div>
       </div>
 

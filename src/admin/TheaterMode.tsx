@@ -19,6 +19,7 @@ import {
   DEFAULT_ROUND_SECONDS,
   DEFAULT_SETTINGS,
   activeChallengeKeys,
+  theaterJoinUrlDisplay,
   type ClassSettings,
   type LeaderboardRow,
   type LiveSessionState,
@@ -225,7 +226,14 @@ function TheaterSession({ classCode }: { classCode: string }) {
       )}
 
       <main className="flex flex-1 flex-col justify-center px-10 py-8">
-        {live.phase === 'lobby' && <LobbyView classCode={classCode} students={students} />}
+        {live.phase === 'lobby' && (
+          <LobbyView
+            classCode={classCode}
+            students={students}
+            joinDisplay={theaterJoinUrlDisplay(settings)}
+            customUrl={settings.theaterCustomJoinUrl ?? ''}
+          />
+        )}
         {live.phase === 'briefing' && (
           <BriefingView title={def?.title} description={def?.description} levers={def?.levers ?? []} />
         )}
@@ -255,15 +263,35 @@ function TheaterSession({ classCode }: { classCode: string }) {
 
 // ── Phase views ─────────────────────────────────────────────────────────────
 
-function LobbyView({ classCode, students }: { classCode: string; students: StudentRow[] }) {
-  const joinUrl = `${window.location.origin}${import.meta.env.BASE_URL}`;
+function LobbyView({
+  classCode,
+  students,
+  joinDisplay,
+  customUrl,
+}: {
+  classCode: string;
+  students: StudentRow[];
+  joinDisplay: 'full' | 'custom' | 'hidden';
+  customUrl: string;
+}) {
+  // Auto-detected from wherever this is actually served, never hardcoded.
+  const siteUrl = `${window.location.origin}${import.meta.env.BASE_URL}`;
+  const shownUrl = joinDisplay === 'custom' ? customUrl.trim() : joinDisplay === 'full' ? siteUrl : '';
   const sorted = [...students].sort((a, b) => a.joinedAt - b.joinedAt);
   return (
     <div className="text-center">
       <style>{`@keyframes theaterPop{from{opacity:0;transform:scale(.85)}to{opacity:1;transform:scale(1)}}`}</style>
-      <p className="text-xl uppercase tracking-[0.3em] text-[var(--color-text-muted)]">Join at</p>
-      <p className="mt-3 break-all font-mono text-4xl text-[var(--color-accent)] lg:text-5xl">{joinUrl}</p>
-      <p className="mt-8 text-xl uppercase tracking-[0.3em] text-[var(--color-text-muted)]">Class code</p>
+      {shownUrl && (
+        <>
+          <p className="text-xl uppercase tracking-[0.3em] text-[var(--color-text-muted)]">Join at</p>
+          <p className="mt-3 break-all font-mono text-4xl text-[var(--color-accent)] lg:text-5xl">{shownUrl}</p>
+        </>
+      )}
+      {/* The class code is shown in every mode — students need it to join even
+          when the link reached them some other way. */}
+      <p className={`${shownUrl ? 'mt-8' : ''} text-xl uppercase tracking-[0.3em] text-[var(--color-text-muted)]`}>
+        Class code
+      </p>
       <p className="mt-2 font-mono text-7xl font-bold lg:text-8xl">{classCode}</p>
 
       <p className="mt-10 text-lg text-[var(--color-text-secondary)]">

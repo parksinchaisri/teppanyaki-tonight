@@ -57,7 +57,16 @@ export interface ClassSettings {
   // until they have submitted the reflection the current one requires. Applies
   // in both self-paced and live mode.
   reflectionGatesProgress: boolean;
+
+  // What the Theater Mode lobby shows for joining. 'full' prints the deployed
+  // site URL, 'custom' prints theaterCustomJoinUrl verbatim (a short link, say),
+  // 'hidden' prints nothing on the assumption the link is shared over chat.
+  // The class code is always shown regardless.
+  theaterJoinUrlDisplay: TheaterJoinUrlDisplay;
+  theaterCustomJoinUrl: string;
 }
+
+export type TheaterJoinUrlDisplay = 'full' | 'custom' | 'hidden';
 
 export const DEFAULT_SETTINGS: ClassSettings = {
   reflectionsRequired: true,
@@ -78,6 +87,8 @@ export const DEFAULT_SETTINGS: ClassSettings = {
   reflectionsRequiredByChallenge: {},
   confidenceRatingEnabled: Object.fromEntries(ALL_CHALLENGE_KEYS.map((k) => [k, false])),
   reflectionGatesProgress: false,
+  theaterJoinUrlDisplay: 'full',
+  theaterCustomJoinUrl: '',
 };
 
 // ── Per-challenge settings accessors ────────────────────────────────────────
@@ -115,6 +126,11 @@ export function reflectionsRequiredFor(s: ClassSettings, key: string): boolean {
 
 export function confidenceRatingEnabledFor(s: ClassSettings, key: string): boolean {
   return s.confidenceRatingEnabled?.[key] ?? false;
+}
+
+export function theaterJoinUrlDisplay(s: ClassSettings): TheaterJoinUrlDisplay {
+  const v = s.theaterJoinUrlDisplay;
+  return v === 'custom' || v === 'hidden' ? v : 'full';
 }
 
 export function finalChallengeLevers(s: ClassSettings): FinalChallengeLevers {
