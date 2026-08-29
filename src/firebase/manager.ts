@@ -5,6 +5,9 @@ export interface ClassSummary {
   code: string;
   createdAt: number;
   studentCount: number;
+  // The class document is publicly readable, so the PIN is already part of what
+  // this listing fetches. It is masked in the UI until explicitly revealed.
+  instructorPin: string;
 }
 
 // The top-level classes collection is already publicly readable, so the manager
@@ -15,7 +18,7 @@ export async function listClasses(): Promise<ClassSummary[]> {
   const snap = await getDocs(collection(db, 'classes'));
   const rows = await Promise.all(
     snap.docs.map(async (d) => {
-      const data = d.data() as { createdAt?: unknown };
+      const data = d.data() as { createdAt?: unknown; instructorPin?: unknown };
       let studentCount = 0;
       try {
         const students = await getDocs(collection(db, 'classes', d.id, 'students'));
@@ -27,6 +30,7 @@ export async function listClasses(): Promise<ClassSummary[]> {
         code: d.id,
         createdAt: typeof data.createdAt === 'number' ? data.createdAt : 0,
         studentCount,
+        instructorPin: String(data.instructorPin ?? ''),
       };
     }),
   );

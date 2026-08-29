@@ -20,6 +20,8 @@ export function GameManager() {
   // Deleting is only offered for classes exported in this session — the export
   // is the safety interlock, so it deliberately does not persist across reloads.
   const [exported, setExported] = useState<Set<string>>(new Set());
+  // Masked by default so a casually shared screen does not expose every PIN.
+  const [revealed, setRevealed] = useState<Set<string>>(new Set());
   const [stage, setStage] = useState<Stage>(null);
 
   async function refresh() {
@@ -105,6 +107,7 @@ export function GameManager() {
           <thead className="bg-[var(--color-surface-raised)] text-xs uppercase text-[var(--color-text-secondary)]">
             <tr>
               <th className="px-4 py-2 text-left">Class code</th>
+              <th className="px-4 py-2 text-left">PIN</th>
               <th className="px-4 py-2 text-left">Created</th>
               <th className="px-4 py-2 text-right">Students</th>
               <th className="px-4 py-2 text-right">Actions</th>
@@ -113,14 +116,14 @@ export function GameManager() {
           <tbody>
             {loading && (
               <tr>
-                <td colSpan={4} className="px-4 py-8 text-center text-[var(--color-text-muted)]">
+                <td colSpan={5} className="px-4 py-8 text-center text-[var(--color-text-muted)]">
                   Loading…
                 </td>
               </tr>
             )}
             {!loading && classes.length === 0 && (
               <tr>
-                <td colSpan={4} className="px-4 py-8 text-center text-[var(--color-text-muted)]">
+                <td colSpan={5} className="px-4 py-8 text-center text-[var(--color-text-muted)]">
                   No classes found.
                 </td>
               </tr>
@@ -130,6 +133,20 @@ export function GameManager() {
               return (
                 <tr key={c.code} className="border-t border-[var(--color-border)]/40">
                   <td className="px-4 py-3 font-mono font-medium">{c.code}</td>
+                  <td className="px-4 py-3">
+                    <PinCell
+                      pin={c.instructorPin}
+                      shown={revealed.has(c.code)}
+                      onToggle={() =>
+                        setRevealed((prev) => {
+                          const next = new Set(prev);
+                          if (next.has(c.code)) next.delete(c.code);
+                          else next.add(c.code);
+                          return next;
+                        })
+                      }
+                    />
+                  </td>
                   <td className="px-4 py-3 text-[var(--color-text-secondary)]">
                     {c.createdAt ? new Date(c.createdAt).toLocaleDateString() : '—'}
                   </td>
@@ -170,6 +187,26 @@ export function GameManager() {
         />
       )}
     </div>
+  );
+}
+
+// Looking a PIN up here is what keeps a forgotten PIN from permanently
+// stranding a class — Export and Delete still ask for it, but it is always
+// recoverable rather than lost.
+function PinCell({ pin, shown, onToggle }: { pin: string; shown: boolean; onToggle: () => void }) {
+  if (!pin) return <span className="text-xs text-[var(--color-text-muted)]">—</span>;
+  return (
+    <span className="flex items-center gap-2">
+      <span className="font-mono text-sm">{shown ? pin : '•'.repeat(Math.max(4, pin.length))}</span>
+      <button
+        onClick={onToggle}
+        title={shown ? 'Hide PIN' : 'Show PIN'}
+        aria-label={shown ? 'Hide PIN' : 'Show PIN'}
+        className="text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-accent)]"
+      >
+        {shown ? '🙈 Hide' : '👁 Show PIN'}
+      </button>
+    </span>
   );
 }
 
