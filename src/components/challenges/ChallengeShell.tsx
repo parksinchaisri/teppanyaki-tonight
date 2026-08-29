@@ -56,9 +56,17 @@ interface Props extends ChallengeContentProps {
   // Final Challenge uses it to substitute class defaults for levers the
   // instructor has switched off.
   sanitizeConfig?: (c: SimConfig) => SimConfig;
+  // Compare mode (Challenge 1): instead of choose-one-then-simulate, run a fixed
+  // set of policies together in a single action and let the student pick which
+  // result to submit. Both runs come from one action, so they cost one attempt.
+  compare?: {
+    buttonLabel: string;
+    intro: string;
+    makeOptions: (config: SimConfig) => { id: string; label: string; hint: string; config: SimConfig }[];
+  };
 }
 
-export function ChallengeShell({ def, renderControls, state, onChange, wide, sanitizeConfig }: Props) {
+export function ChallengeShell({ def, renderControls, state, onChange, wide, sanitizeConfig, compare }: Props) {
   const { session, settings, params, markCompleted, markReflected, attemptCounts, bumpAttempt, liveState } =
     useApp();
   const [showCompare, setShowCompare] = useState(false);
@@ -95,10 +103,46 @@ export function ChallengeShell({ def, renderControls, state, onChange, wide, san
     [runs],
   );
 
+  // Runs every compare option in one action. Deliberately one attempt and one
+  // audit row (logged against the better config) — the student made a single
+  // decision, so charging two would misread the attempt limit.
+  function runCompare(confidenceRating: number | null) {
+    if (!compare || simulateBlocked) return;
+    const options = compare.makeOptions(config);
+    const saved: SavedRun[] = options.map((o) => ({
+      id: o.id,
+      label: o.label,
+      config: structuredClone(o.config),
+      result: runChallenge(o.config, def.key, { ...params, strictBatching: settings.strictBatching }),
+    }));
+    const top = saved.reduce((a, b) => (b.result.avgProfit > a.result.avgProfit ? b : a));
+    onChange((s) => ({
+      ...s,
+      runs: saved,
+      selectedId: top.id,
+      selectedRun: representativeRun(top.result),
+    }));
+
+    const attemptNumber = bumpAttempt(def.key);
+    if (session) {
+      void logAttempt({
+        classCode: session.classCode,
+        studentId: session.studentId,
+        displayName: session.displayName,
+        challengeKey: def.key,
+        attemptNumber,
+        config: top.config,
+        result: top.result,
+        confidenceRating,
+      }).catch(() => {});
+    }
+  }
+
   // A brand-new configuration run. Consumes one attempt and appends a row to the
   // permanent `attempts` audit trail. Re-selecting a saved config does neither.
   function simulate(confidenceRating: number | null) {
     if (simulateBlocked) return;
+    if (compare) return runCompare(confidenceRating);
     const effective = sanitizeConfig ? sanitizeConfig(config) : config;
     const result: ChallengeResult = runChallenge(effective, def.key, {
       ...params,
@@ -133,8 +177,10 @@ export function ChallengeShell({ def, renderControls, state, onChange, wide, san
     onChange((s) => ({ ...s, selectedId: r.id, selectedRun: representativeRun(r.result) }));
   }
 
-  async function handleSubmit() {
-    if (!best || !session) return;
+  // Compare mode submits whichever policy the student picked; every other
+  // challenge submits their best run, as before.
+  async function handleSubmit(run: SavedRun | null = best) {
+    if (!run || !session) return;
     setStatus({ kind: 'idle', msg: 'Submitting…' });
     try {
       await submitResult({
@@ -142,15 +188,15 @@ export function ChallengeShell({ def, renderControls, state, onChange, wide, san
         studentId: session.studentId,
         studentName: session.displayName,
         challengeKey: def.key,
-        avgProfit: best.result.avgProfit,
-        maxProfit: best.result.maxProfit,
-        config: best.config,
+        avgProfit: run.result.avgProfit,
+        maxProfit: run.result.maxProfit,
+        config: run.config,
       });
       markCompleted(def.key);
       setStatus({
         kind: 'ok',
         msg: firebaseConfigured
-          ? `Submitted ${money(best.result.avgProfit)} to the leaderboard.`
+          ? `Submitted ${money(run.result.avgProfit)} to the leaderboard.`
           : 'Recorded locally (leaderboard disabled in demo mode).',
       });
     } catch {
@@ -174,15 +220,8 @@ export function ChallengeShell({ def, renderControls, state, onChange, wide, san
 
   // ── Shared sub-blocks ──────────────────────────────────────────────────────
 
-  const simulateButton = (
-    <div className="space-y-2">
-      <button
-        onClick={handleSimulateClick}
-        disabled={simulateBlocked}
-        className="w-full rounded-md bg-[var(--color-accent)] px-4 py-2.5 font-medium text-white disabled:cursor-not-allowed disabled:opacity-40"
-      >
-        ▶ Simulate 20 nights
-      </button>
+  const blockedNote = (
+    <>
       {roundClosed ? (
         <p className="text-center text-xs text-[var(--color-accent-amber)]">This round has ended.</p>
       ) : awaitingTimer ? (
@@ -200,6 +239,19 @@ export function ChallengeShell({ def, renderControls, state, onChange, wide, san
           </p>
         )
       )}
+    </>
+  );
+
+  const simulateButton = (
+    <div className="space-y-2">
+      <button
+        onClick={handleSimulateClick}
+        disabled={simulateBlocked}
+        className="w-full rounded-md bg-[var(--color-accent)] px-4 py-2.5 font-medium text-white disabled:cursor-not-allowed disabled:opacity-40"
+      >
+        ▶ Simulate 20 nights
+      </button>
+      {blockedNote}
       {askingConfidence && (
         <ConfidencePrompt
           onCancel={() => setAskingConfidence(false)}
@@ -304,6 +356,68 @@ export function ChallengeShell({ def, renderControls, state, onChange, wide, san
     </div>
   );
 
+  // ── Compare layout (Challenge 1): both policies run and shown together ──────
+  if (compare) {
+    const chosen = selected ?? best;
+    return (
+      <div className="space-y-5">
+        {header}
+
+        {runs.length === 0 ? (
+          <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-8 text-center">
+            <p className="mx-auto max-w-2xl text-sm text-[var(--color-text-secondary)]">{compare.intro}</p>
+            <div className="mx-auto mt-5 max-w-sm">
+              <button
+                onClick={handleSimulateClick}
+                disabled={simulateBlocked}
+                className="w-full rounded-md bg-[var(--color-accent)] px-4 py-2.5 font-medium text-white disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {compare.buttonLabel}
+              </button>
+              {blockedNote}
+              {askingConfidence && (
+                <ConfidencePrompt
+                  onCancel={() => setAskingConfidence(false)}
+                  onPick={(rating) => {
+                    setAskingConfidence(false);
+                    simulate(rating);
+                  }}
+                />
+              )}
+            </div>
+          </div>
+        ) : (
+          <>
+            <ComparisonBoard
+              runs={runs}
+              selectedId={chosen?.id ?? null}
+              onSelect={(id: string) => {
+                const r = runs.find((x) => x.id === id);
+                if (r) selectConfig(r);
+              }}
+            />
+
+            <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
+              <p className="text-sm text-[var(--color-text-secondary)]">
+                Both policies are already run. Pick the one you want on the leaderboard.
+              </p>
+              <SubmitBlock
+                best={chosen}
+                status={status}
+                onSubmit={() => handleSubmit(chosen)}
+                label={chosen ? `Submit ${chosen.label} to leaderboard` : 'Submit to leaderboard'}
+              />
+            </div>
+
+            {resultsBlock}
+            {reflectionBlock}
+            {showCompare && <ComparePanel runs={runs} onClose={() => setShowCompare(false)} />}
+          </>
+        )}
+      </div>
+    );
+  }
+
   // ── Wide layout (Final Challenge): full-width config grid above Simulate ────
   if (wide) {
     return (
@@ -384,6 +498,75 @@ export function ChallengeShell({ def, renderControls, state, onChange, wide, san
   );
 }
 
+// Challenge 1's side-by-side board: both policies already run, shown together
+// so the decision is a comparison of two realised outcomes rather than a
+// guess-and-check loop. Clicking a column picks it for detail and submission.
+function ComparisonBoard({
+  runs,
+  selectedId,
+  onSelect,
+}: {
+  runs: SavedRun[];
+  selectedId: string | null;
+  onSelect: (id: string) => void;
+}) {
+  const top = runs.reduce((a, b) => (b.result.avgProfit > a.result.avgProfit ? b : a));
+  const metrics: { label: string; get: (r: SavedRun) => string; better?: 'high' | 'low'; raw: (r: SavedRun) => number }[] = [
+    { label: 'Avg profit', get: (r) => money(r.result.avgProfit), better: 'high', raw: (r) => r.result.avgProfit },
+    { label: 'Best night', get: (r) => money(r.result.maxProfit), better: 'high', raw: (r) => r.result.maxProfit },
+    { label: 'Avg lost guests', get: (r) => r.result.avgLost.toFixed(0), better: 'low', raw: (r) => r.result.avgLost },
+    { label: 'Chef utilisation', get: (r) => pct(r.result.avgChefUtil), better: 'high', raw: (r) => r.result.avgChefUtil },
+  ];
+
+  return (
+    <div className="grid gap-4 md:grid-cols-2">
+      {runs.map((r) => {
+        const isSelected = r.id === selectedId;
+        const isTop = r.id === top.id;
+        return (
+          <button
+            key={r.id}
+            onClick={() => onSelect(r.id)}
+            className={`rounded-xl border p-5 text-left transition-colors ${
+              isSelected
+                ? 'border-[var(--color-accent)] bg-[var(--color-accent)]/10'
+                : 'border-[var(--color-border)] bg-[var(--color-surface)] hover:border-[var(--color-text-muted)]'
+            }`}
+          >
+            <div className="flex items-center justify-between">
+              <span className="font-semibold">{r.label}</span>
+              {isTop && <Badge tone="green">higher profit</Badge>}
+            </div>
+            <div className="mt-4 space-y-2">
+              {metrics.map((m) => {
+                const others = runs.filter((x) => x.id !== r.id);
+                const wins = others.every((o) =>
+                  m.better === 'low' ? m.raw(r) < m.raw(o) : m.raw(r) > m.raw(o),
+                );
+                return (
+                  <div key={m.label} className="flex items-baseline justify-between gap-3">
+                    <span className="text-xs uppercase tracking-wide text-[var(--color-text-muted)]">{m.label}</span>
+                    <span
+                      className={`font-mono text-lg ${
+                        wins ? 'text-[var(--color-accent-green)]' : 'text-[var(--color-text-primary)]'
+                      }`}
+                    >
+                      {m.get(r)}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+            <p className="mt-4 text-xs text-[var(--color-text-secondary)]">
+              {isSelected ? '✓ Selected — details below' : 'Click to inspect this policy'}
+            </p>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 // The same shared class clock Theater Mode projects, so students can pace
 // themselves without switching windows.
 function CountdownBadge({ endsAt }: { endsAt: number | null }) {
@@ -442,10 +625,12 @@ function SubmitBlock({
   best,
   status,
   onSubmit,
+  label,
 }: {
   best: SavedRun | null;
   status: { kind: 'idle' | 'ok' | 'err'; msg: string };
   onSubmit: () => void;
+  label?: string;
 }) {
   return (
     <div className="mt-4 flex flex-wrap items-center gap-3">
@@ -454,7 +639,7 @@ function SubmitBlock({
         disabled={!best}
         className="w-auto rounded-md bg-[var(--color-accent-green)] px-8 py-2 font-medium text-black disabled:opacity-40"
       >
-        Submit best to leaderboard
+        {label ?? 'Submit best to leaderboard'}
       </button>
       <span
         className={`text-xs ${
