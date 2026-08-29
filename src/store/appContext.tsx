@@ -29,6 +29,7 @@ export interface Session {
 
 const SESSION_KEY = 'teppanyaki.session';
 const COMPLETED_KEY = 'teppanyaki.completed';
+const REFLECTED_KEY = 'teppanyaki.reflected';
 
 export function loadSession(): Session | null {
   try {
@@ -49,11 +50,22 @@ export function saveSession(s: Session) {
 export function clearSession() {
   localStorage.removeItem(SESSION_KEY);
   localStorage.removeItem(COMPLETED_KEY);
+  localStorage.removeItem(REFLECTED_KEY);
 }
 
 function loadCompleted(): Record<string, boolean> {
   try {
     return JSON.parse(localStorage.getItem(COMPLETED_KEY) ?? '{}');
+  } catch {
+    return {};
+  }
+}
+
+// Which challenges this student has submitted a reflection for. Persisted like
+// `completed` so a refresh mid-class does not re-lock their progress.
+function loadReflected(): Record<string, boolean> {
+  try {
+    return JSON.parse(localStorage.getItem(REFLECTED_KEY) ?? '{}');
   } catch {
     return {};
   }
@@ -66,6 +78,8 @@ interface AppContextValue {
   params: ParamOverrides;
   completed: Record<string, boolean>;
   markCompleted: (challengeKey: string) => void;
+  reflected: Record<string, boolean>;
+  markReflected: (challengeKey: string) => void;
   // Per-challenge UI state lives here (not in ChallengesTab) so a student's configs
   // and results survive switching between the top-level Prepare/Challenges/Leaderboard
   // tabs, not just the challenge sub-tabs.
@@ -92,6 +106,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [settings, setSettings] = useState<ClassSettings>(DEFAULT_SETTINGS);
   const [params, setParams] = useState<ParamOverrides>(DEFAULT_PARAMS);
   const [completed, setCompleted] = useState<Record<string, boolean>>(() => loadCompleted());
+  const [reflected, setReflected] = useState<Record<string, boolean>>(() => loadReflected());
   const [challengeStates, setChallengeStates] = useState<Record<string, ChallengeUIState>>({});
   const [animationTime, setAnimationTime] = useState<Record<string, number>>({});
   const [liveState, setLiveState] = useState<LiveSessionState>(DEFAULT_LIVE_STATE);
@@ -158,6 +173,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
     });
   };
 
+  const markReflected = (challengeKey: string) => {
+    setReflected((prev) => {
+      const next = { ...prev, [challengeKey]: true };
+      localStorage.setItem(REFLECTED_KEY, JSON.stringify(next));
+      return next;
+    });
+  };
+
   const value = useMemo(
     () => ({
       session,
@@ -166,6 +189,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       params,
       completed,
       markCompleted,
+      reflected,
+      markReflected,
       challengeStates,
       setChallengeStates,
       animationTime,
@@ -174,7 +199,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       bumpAttempt,
       liveState,
     }),
-    [session, settings, params, completed, challengeStates, animationTime, attemptCounts, liveState],
+    [session, settings, params, completed, reflected, challengeStates, animationTime, attemptCounts, liveState],
   );
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

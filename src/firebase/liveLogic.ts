@@ -60,6 +60,35 @@ export function isRoundClosed(
   return live.phase === 'round_results' || live.phase === 'wrap_up';
 }
 
+// A4: during the briefing the challenge is already unlocked and visible, but the
+// round has not started — simulating is held until the instructor starts the timer.
+export function isAwaitingTimer(
+  settings: ClassSettings,
+  live: LiveSessionState,
+  challengeKey: string,
+): boolean {
+  if (!settings.liveSessionMode) return false;
+  return live.phase === 'briefing' && live.currentChallenge === challengeKey;
+}
+
+// A2: the challenge whose reflection is blocking entry to `targetKey`, or null
+// when the student may proceed. Only the immediately preceding playlist entry
+// gates the next one.
+export function reflectionGateBlocker(
+  settings: ClassSettings,
+  targetKey: string,
+  reflected: Record<string, boolean>,
+): string | null {
+  if (!settings.reflectionGatesProgress) return null;
+  const order = activeChallengeKeys(settings);
+  const i = order.indexOf(targetKey);
+  if (i <= 0) return null; // the first challenge is never gated
+  const prev = order[i - 1];
+  const required = settings.reflectionsRequiredByChallenge?.[prev] ?? settings.reflectionsRequired;
+  if (!required) return null;
+  return reflected[prev] ? null : prev;
+}
+
 export interface RoundStanding {
   studentId: string;
   studentName: string;

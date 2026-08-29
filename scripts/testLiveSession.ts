@@ -6,9 +6,11 @@ import {
   bestAttemptsByStudent,
   cumulativeStandings,
   formatCountdown,
+  isAwaitingTimer,
   isRoundClosed,
   nextChallengeKey,
   normalizeLiveState,
+  reflectionGateBlocker,
   roundStandings,
 } from '../src/firebase/liveLogic';
 import { DEFAULT_SETTINGS, type AttemptRow, type ClassSettings, type LeaderboardRow, type LiveSessionState, type StudentRow } from '../src/firebase/types';
@@ -114,12 +116,27 @@ check('best of many attempts', best.get('ana')?.resultSummary.avgProfit === 1400
 check('scoped to the challenge', best.size === 2, `${best.size} students`);
 check('student with no attempts absent', !best.has('cy'), 'cy never simulated → No submission');
 
-section('6. Countdown formatting');
+section('6. Iteration 9 A4 — Simulate held until the timer starts');
+check('held during briefing', isAwaitingTimer(s, live({ phase: 'briefing', currentChallenge: 'barSize' }), 'barSize'), 'waiting for instructor to start');
+check('released in the timed round', !isAwaitingTimer(s, live({ phase: 'timed_round', currentChallenge: 'barSize' }), 'barSize'), 'round running');
+check('another challenge unaffected', !isAwaitingTimer(s, live({ phase: 'briefing', currentChallenge: 'barSize' }), 'batching'), 'only the briefed challenge');
+check('self-paced never holds', !isAwaitingTimer(settings({ liveSessionMode: false }), live({ phase: 'briefing', currentChallenge: 'barSize' }), 'barSize'), 'iteration 7/8 behaviour untouched');
+
+section('7. Iteration 9 A2 — reflection gates progress');
+const gated = settings({ reflectionGatesProgress: true, reflectionsRequired: true });
+check('off by default', reflectionGateBlocker(settings(), 'barSize', {}) === null, 'setting disabled → never gates');
+check('blocks the next challenge', reflectionGateBlocker(gated, 'barSize', {}) === 'batching', `blocker: ${reflectionGateBlocker(gated, 'barSize', {})}`);
+check('clears once reflected', reflectionGateBlocker(gated, 'barSize', { batching: true }) === null, 'reflection submitted');
+check('first challenge never gated', reflectionGateBlocker(gated, 'batching', {}) === null, 'nothing precedes it');
+check('per-challenge override respected', reflectionGateBlocker(settings({ reflectionGatesProgress: true, reflectionsRequired: true, reflectionsRequiredByChallenge: { batching: false } }), 'barSize', {}) === null, 'batching reflection not required');
+check('gates in live mode too', reflectionGateBlocker(settings({ reflectionGatesProgress: true, reflectionsRequired: true, liveSessionMode: true }), 'diningTime', { batching: true }) === 'barSize', 'unlock does not bypass it');
+
+section('8. Countdown formatting');
 check('minutes and seconds', formatCountdown(125_000) === '02:05', formatCountdown(125_000));
 check('pads correctly', formatCountdown(9_000) === '00:09', formatCountdown(9_000));
 check('never goes negative', formatCountdown(-5_000) === '00:00', formatCountdown(-5_000));
 
-section('7. Missing/partial live document falls back safely');
+section('9. Missing/partial live document falls back safely');
 const blank = normalizeLiveState(undefined);
 check('defaults to lobby', blank.phase === 'lobby' && blank.currentChallenge === null, `${blank.phase}`);
 check('rejects a bogus phase', normalizeLiveState({ phase: 'nonsense' }).phase === 'lobby', 'unknown phase ignored');

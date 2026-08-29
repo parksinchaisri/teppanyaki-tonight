@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AdminLogin } from './AdminLogin';
 import { subscribeSettings } from '../firebase/classSettings';
 import { subscribeLeaderboard } from '../firebase/leaderboard';
@@ -65,6 +65,9 @@ function TheaterSession({ classCode }: { classCode: string }) {
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState('');
   const [duration, setDuration] = useState(DEFAULT_ROUND_SECONDS / 60);
+  // A3: shown for a beat when the round closes itself because everyone is in.
+  const [autoClosing, setAutoClosing] = useState(false);
+  const autoCloseFired = useRef<string | null>(null);
 
   useEffect(() => subscribeSettings(classCode, (s) => setSettings(s)), [classCode]);
   useEffect(() => subscribeLiveState(classCode, setLive), [classCode]);
@@ -74,6 +77,45 @@ function TheaterSession({ classCode }: { classCode: string }) {
   const order = useMemo(() => activeChallengeKeys(settings), [settings]);
   const def = live.currentChallenge ? CHALLENGE_BY_KEY[live.currentChallenge] : null;
   const isLast = live.currentChallenge ? nextChallengeKey(order, live.currentChallenge) === null : false;
+
+  const submittedCount = useMemo(
+    () => new Set(rows.filter((r) => r.challengeKey === live.currentChallenge).map((r) => r.studentId)).size,
+    [rows, live.currentChallenge],
+  );
+
+  const closeRound = useCallback(
+    async (challengeKey: string) => {
+      const res = await endRound(classCode, challengeKey);
+      setNotice(
+        `Round closed — ${res.forced} result${res.forced === 1 ? '' : 's'} auto-submitted` +
+          (res.noSubmission ? `, ${res.noSubmission} with no submission.` : '.'),
+      );
+    },
+    [classCode],
+  );
+
+  // A3: the moment every student on the roster has submitted, close the round
+  // itself rather than waiting out the clock. Guarded per challenge so it fires
+  // once, and it needs a non-empty roster or an empty class would close instantly.
+  useEffect(() => {
+    const key = live.currentChallenge;
+    if (live.phase !== 'timed_round' || !key) return;
+    if (autoCloseFired.current === key) return;
+    const joined = students.length;
+    if (joined === 0 || submittedCount < joined) return;
+
+    autoCloseFired.current = key;
+    setAutoClosing(true);
+    const id = setTimeout(() => {
+      void closeRound(key).finally(() => setAutoClosing(false));
+    }, 2000);
+    return () => clearTimeout(id);
+  }, [live.phase, live.currentChallenge, submittedCount, students.length, closeRound]);
+
+  // Let a re-run of the same challenge (after a reset) auto-close again.
+  useEffect(() => {
+    if (live.phase === 'lobby') autoCloseFired.current = null;
+  }, [live.phase]);
 
   async function run(fn: () => Promise<unknown>, failure: string) {
     setBusy(true);
@@ -127,15 +169,7 @@ function TheaterSession({ classCode }: { classCode: string }) {
         <BigButton
           tone="amber"
           disabled={busy}
-          onClick={() =>
-            run(async () => {
-              const res = await endRound(classCode, live.currentChallenge as string);
-              setNotice(
-                `Round closed — ${res.forced} result${res.forced === 1 ? '' : 's'} auto-submitted` +
-                  (res.noSubmission ? `, ${res.noSubmission} with no submission.` : '.'),
-              );
-            }, 'Could not end the round.')
-          }
+          onClick={() => run(() => closeRound(live.currentChallenge as string), 'Could not end the round.')}
         >
           ⏹ End Round Now
         </BigButton>
@@ -195,7 +229,12 @@ function TheaterSession({ classCode }: { classCode: string }) {
         {live.phase === 'lobby' && <LobbyView classCode={classCode} students={students} />}
         {live.phase === 'briefing' && <BriefingView title={def?.title} description={def?.description} />}
         {live.phase === 'timed_round' && (
-          <TimedRoundView live={live} rows={rows} students={students} />
+          <TimedRoundView
+            live={live}
+            submitted={submittedCount}
+            students={students}
+            autoClosing={autoClosing}
+          />
         )}
         {live.phase === 'round_results' && live.currentChallenge && (
           <RoundResultsView
@@ -261,18 +300,30 @@ function BriefingView({ title, description }: { title?: string; description?: st
 
 function TimedRoundView({
   live,
-  rows,
+  submitted,
   students,
+  autoClosing,
 }: {
   live: LiveSessionState;
-  rows: LeaderboardRow[];
+  submitted: number;
   students: StudentRow[];
+  autoClosing: boolean;
 }) {
   const { label, expired } = useCountdown(live.timer?.endsAt ?? null);
-  const submitted = new Set(
-    rows.filter((r) => r.challengeKey === live.currentChallenge).map((r) => r.studentId),
-  ).size;
   const joined = Math.max(students.length, submitted);
+
+  if (autoClosing) {
+    return (
+      <div className="text-center">
+        <p className="text-6xl font-bold text-[var(--color-accent-green)] lg:text-7xl">
+          Everyone&apos;s in — closing the round!
+        </p>
+        <p className="mt-6 font-mono text-4xl text-[var(--color-text-secondary)]">
+          {submitted} / {joined} submitted
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="text-center">

@@ -216,6 +216,23 @@ export function SessionControlTab({ classCode, settings, params }: Props) {
         )}
       </div>
 
+      {/* ── Class-level progression rules ──────────────────────────────────── */}
+      <label className="flex cursor-pointer items-center justify-between gap-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
+        <span>
+          <span className="font-medium">Reflection gates progress</span>
+          <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
+            Students cannot move to the next challenge until they have submitted the reflection the current one
+            requires — in both self-paced and live mode.
+          </p>
+        </span>
+        <input
+          type="checkbox"
+          checked={settings.reflectionGatesProgress ?? false}
+          onChange={(e) => patch({ reflectionGatesProgress: e.target.checked })}
+          className="h-5 w-5 shrink-0 accent-[var(--color-accent)]"
+        />
+      </label>
+
       {/* ── Playlist editor ────────────────────────────────────────────────── */}
       <section className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-[var(--color-text-secondary)]">Playlist</h2>

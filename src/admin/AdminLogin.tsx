@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { getClassDoc } from '../firebase/classSettings';
+import { getClassDoc, resolveClassCode } from '../firebase/classSettings';
 import { firebaseConfigured } from '../firebase/config';
 
 // The shared instructor PIN gate. Used by the admin dashboard and by Theater
@@ -13,10 +13,10 @@ export function AdminLogin({ onAuthed }: { onAuthed: (classCode: string) => void
   async function handleLogin() {
     setError('');
     setBusy(true);
-    const code = classCode.trim();
     try {
-      const cls = await getClassDoc(code);
-      if (!cls) {
+      const code = await resolveClassCode(classCode);
+      const cls = code ? await getClassDoc(code) : null;
+      if (!code || !cls) {
         setError('Class code not found.');
       } else if (firebaseConfigured && cls.instructorPin !== pin.trim()) {
         setError('Incorrect PIN.');
@@ -34,8 +34,9 @@ export function AdminLogin({ onAuthed }: { onAuthed: (classCode: string) => void
       <p className="text-sm text-[var(--color-text-secondary)]">Enter your class code and PIN.</p>
       <input
         value={classCode}
-        onChange={(e) => setClassCode(e.target.value)}
+        onChange={(e) => setClassCode(e.target.value.toUpperCase())}
         onKeyDown={(e) => e.key === 'Enter' && classCode.trim() && handleLogin()}
+        style={{ textTransform: 'uppercase' }}
         placeholder="Class code"
         className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface-raised)] px-3 py-2 font-mono outline-none focus:border-[var(--color-accent)]"
       />

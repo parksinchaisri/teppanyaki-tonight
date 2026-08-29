@@ -7,7 +7,7 @@ import { submitResult } from '../../firebase/leaderboard';
 import { submitReflection } from '../../firebase/reflections';
 import { logAttempt } from '../../firebase/attempts';
 import { confidenceRatingEnabledFor, maxAttemptsFor, reflectionsRequiredFor } from '../../firebase/types';
-import { isRoundClosed } from '../../firebase/liveSession';
+import { isAwaitingTimer, isRoundClosed } from '../../firebase/liveSession';
 import { useCountdown } from '../shared/useCountdown';
 import { firebaseConfigured } from '../../firebase/config';
 import { money, pct, uuid } from '../../lib/format';
@@ -59,7 +59,8 @@ interface Props extends ChallengeContentProps {
 }
 
 export function ChallengeShell({ def, renderControls, state, onChange, wide, sanitizeConfig }: Props) {
-  const { session, settings, params, markCompleted, attemptCounts, bumpAttempt, liveState } = useApp();
+  const { session, settings, params, markCompleted, markReflected, attemptCounts, bumpAttempt, liveState } =
+    useApp();
   const [showCompare, setShowCompare] = useState(false);
   const [status, setStatus] = useState<{ kind: 'idle' | 'ok' | 'err'; msg: string }>({ kind: 'idle', msg: '' });
   // Non-null while the confidence prompt is open (the pending run is waiting on it).
@@ -73,7 +74,10 @@ export function ChallengeShell({ def, renderControls, state, onChange, wide, san
   // The instructor has closed this round — simulating is over, but everything
   // already run stays viewable.
   const roundClosed = isRoundClosed(settings, liveState, def.key);
-  const simulateBlocked = limitReached || roundClosed;
+  // The round is unlocked for reading but has not started — hold Simulate until
+  // the instructor starts the timer.
+  const awaitingTimer = isAwaitingTimer(settings, liveState, def.key);
+  const simulateBlocked = limitReached || roundClosed || awaitingTimer;
   // The shared class clock, shown only while this challenge's round is running.
   const timerActive =
     settings.liveSessionMode &&
@@ -165,6 +169,7 @@ export function ChallengeShell({ def, renderControls, state, onChange, wide, san
       response: state.reflection.trim(),
     });
     onChange((s) => ({ ...s, reflectSubmitted: true }));
+    markReflected(def.key); // unblocks the next challenge when reflections gate progress
   }
 
   // ── Shared sub-blocks ──────────────────────────────────────────────────────
@@ -180,6 +185,10 @@ export function ChallengeShell({ def, renderControls, state, onChange, wide, san
       </button>
       {roundClosed ? (
         <p className="text-center text-xs text-[var(--color-accent-amber)]">This round has ended.</p>
+      ) : awaitingTimer ? (
+        <p className="text-center text-xs text-[var(--color-accent-amber)]">
+          Get ready — your instructor will start the timer shortly.
+        </p>
       ) : limitReached ? (
         <p className="text-center text-xs text-[var(--color-accent-amber)]">
           Attempt limit reached ({attemptsUsed}/{maxAttempts}) for this challenge.
@@ -238,7 +247,12 @@ export function ChallengeShell({ def, renderControls, state, onChange, wide, san
     </div>
   );
 
-  const reflectionBlock = reflectionsRequiredFor(settings, def.key) && selected && (
+  // Normally the reflection sits under a selected result. When reflections gate
+  // progress it must always be reachable — a student who refreshes has no
+  // selected run in memory, and if the round has closed they cannot make one,
+  // which would strand them behind a gate they can never clear.
+  const reflectionBlock = reflectionsRequiredFor(settings, def.key) &&
+    (selected || settings.reflectionGatesProgress) && (
     <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
       <h3 className="text-sm font-semibold">Reflection</h3>
       <p className="mt-1 text-sm text-[var(--color-text-secondary)]">{def.reflectionQuestion}</p>

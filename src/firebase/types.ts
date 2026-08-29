@@ -51,6 +51,12 @@ export interface ClassSettings {
   reflectionsRequiredByChallenge: Record<string, boolean>;
   // Per-challenge 1–5 confidence prompt before Simulate.
   confidenceRatingEnabled: Record<string, boolean>;
+
+  // ── Iteration 9 ───────────────────────────────────────────────────────────
+  // When true, a student cannot move on to the next challenge in playlist order
+  // until they have submitted the reflection the current one requires. Applies
+  // in both self-paced and live mode.
+  reflectionGatesProgress: boolean;
 }
 
 export const DEFAULT_SETTINGS: ClassSettings = {
@@ -71,6 +77,7 @@ export const DEFAULT_SETTINGS: ClassSettings = {
   leaderboardVisible: Object.fromEntries(ALL_CHALLENGE_KEYS.map((k) => [k, true])),
   reflectionsRequiredByChallenge: {},
   confidenceRatingEnabled: Object.fromEntries(ALL_CHALLENGE_KEYS.map((k) => [k, false])),
+  reflectionGatesProgress: false,
 };
 
 // ── Per-challenge settings accessors ────────────────────────────────────────

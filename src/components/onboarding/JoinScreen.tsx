@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { doc, setDoc } from 'firebase/firestore';
 import { db, firebaseConfigured } from '../../firebase/config';
-import { getClassDoc } from '../../firebase/classSettings';
+import { resolveClassCode } from '../../firebase/classSettings';
 import { useApp } from '../../store/appContext';
 import { uuid } from '../../lib/format';
 
@@ -20,10 +20,11 @@ export function JoinScreen() {
   async function handleJoin() {
     setError('');
     setBusy(true);
-    const code = classCode.trim();
     try {
-      const cls = await getClassDoc(code);
-      if (!cls) {
+      // Resolve to the id that actually exists, then use it for every later
+      // read and write so casing can never split a class in two.
+      const code = await resolveClassCode(classCode);
+      if (!code) {
         setError('Class code not found. Check with your instructor.');
         setBusy(false);
         return;
@@ -62,8 +63,9 @@ export function JoinScreen() {
             <span className="text-sm text-[var(--color-text-secondary)]">Class Code</span>
             <input
               value={classCode}
-              onChange={(e) => setClassCode(e.target.value)}
-              placeholder="e.g. test1"
+              onChange={(e) => setClassCode(e.target.value.toUpperCase())}
+              style={{ textTransform: 'uppercase' }}
+              placeholder="e.g. OPS-101"
               className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface-raised)] px-3 py-2 font-mono outline-none focus:border-[var(--color-accent)]"
             />
           </label>

@@ -16,10 +16,37 @@ function readParams(data: { params?: unknown } | undefined): ParamOverrides {
   };
 }
 
+// Class codes are entered case-insensitively. New codes are created uppercase,
+// but classes created before that convention exist in lowercase, and Firestore
+// document ids are case-sensitive — so resolve the code the student typed to the
+// id that actually exists rather than forcing one casing at the lookup.
+export function normalizeClassCode(input: string): string {
+  return input.trim().toUpperCase();
+}
+
+// Candidate document ids for a typed code, most likely first.
+function codeCandidates(input: string): string[] {
+  const trimmed = input.trim();
+  return [...new Set([trimmed.toUpperCase(), trimmed, trimmed.toLowerCase()])].filter(Boolean);
+}
+
+// Returns the real document id for a typed class code, or null if no casing of
+// it exists. Callers should store the resolved id and use it for every
+// subsequent path, so later reads and writes all address the same document.
+export async function resolveClassCode(input: string): Promise<string | null> {
+  if (!input.trim()) return null;
+  if (!firebaseConfigured) return normalizeClassCode(input); // demo mode — any code works
+  for (const candidate of codeCandidates(input)) {
+    const snap = await getDoc(doc(db, 'classes', candidate));
+    if (snap.exists()) return candidate;
+  }
+  return null;
+}
+
 // Fetch a class document once. Returns null if the class code does not exist.
 export async function getClassDoc(classCode: string): Promise<ClassDoc | null> {
   if (!firebaseConfigured) return { instructorPin: '0000', settings: DEFAULT_SETTINGS, params: DEFAULT_PARAMS };
-  const snap = await getDoc(doc(db, 'classes', classCode));
+  const snap = await getDoc(doc(db, 'classes', classCode.trim()));
   if (!snap.exists()) return null;
   const data = snap.data() as Partial<ClassDoc>;
   return {
@@ -36,10 +63,15 @@ export async function createClass(
   pin: string,
 ): Promise<{ ok: boolean; error?: string }> {
   if (!firebaseConfigured) return { ok: true }; // demo mode — nothing to persist
-  const ref = doc(db, 'classes', classCode);
+  const code = normalizeClassCode(classCode);
+  const ref = doc(db, 'classes', code);
   try {
-    const existing = await getDoc(ref);
-    if (existing.exists()) return { ok: false, error: 'Class code already taken. Choose a different one.' };
+    // Reject a clash against any casing, so a new UPPERCASE code cannot shadow a
+    // legacy lowercase class that students may still be joining.
+    for (const candidate of codeCandidates(classCode)) {
+      const existing = await getDoc(doc(db, 'classes', candidate));
+      if (existing.exists()) return { ok: false, error: 'Class code already taken. Choose a different one.' };
+    }
     await setDoc(ref, {
       instructorPin: pin,
       createdAt: Date.now(),
