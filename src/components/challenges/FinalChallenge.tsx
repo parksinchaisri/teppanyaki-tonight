@@ -3,8 +3,8 @@ import { PARAMS } from '../../engine/params';
 import { barSeatsToTables, defaultConfig } from '../../engine/simulation';
 import type { AdCampaign, BatchingMode, SimConfig } from '../../engine/types';
 import { useApp } from '../../store/appContext';
-import { finalChallengeLevers } from '../../firebase/types';
-import { ChallengeShell, type ChallengeContentProps } from './ChallengeShell';
+import { finalChallengeLevers, type FinalChallengeLevers } from '../../firebase/types';
+import { ChallengeShell, type ChallengeContentProps, type ControlProps } from './ChallengeShell';
 
 const MODES: { mode: BatchingMode; label: string }[] = [
   { mode: 'none', label: 'No Batch' },
@@ -131,7 +131,27 @@ export function FinalChallenge({ state, onChange }: ChallengeContentProps) {
       onChange={onChange}
       wide
       sanitizeConfig={sanitizeConfig}
-      renderControls={(config, patch) => {
+      renderControls={(config, patch) => (
+        <FinalChallengeControls
+          config={config}
+          patch={patch}
+          levers={levers}
+          gridCols={gridCols}
+          columnCount={columnCount}
+        />
+      )}
+    />
+  );
+}
+
+interface FinalControlsProps extends ControlProps {
+  levers: FinalChallengeLevers;
+  gridCols: string;
+  columnCount: number;
+}
+
+export function FinalChallengeControls({ config, patch, levers, gridCols, columnCount }: FinalControlsProps) {
+  const showBarColumn = levers.barSize || levers.diningTime;
         const tables = barSeatsToTables(config.barSeats);
         return (
           <div className={`grid gap-x-8 gap-y-4 ${gridCols}`}>
@@ -255,7 +275,4 @@ export function FinalChallenge({ state, onChange }: ChallengeContentProps) {
             )}
           </div>
         );
-      }}
-    />
-  );
-}
+      }

@@ -3,7 +3,7 @@ import { advertisingMultiplier } from '../../engine/simulation';
 import type { AdCampaign } from '../../engine/types';
 import { RadioGroup } from '../shared/RadioGroup';
 import { Slider } from '../shared/Slider';
-import { ChallengeShell, type ChallengeContentProps } from './ChallengeShell';
+import { ChallengeShell, type ChallengeContentProps, type ControlProps } from './ChallengeShell';
 
 const CAMPAIGNS: { value: AdCampaign; label: string; hint: string }[] = [
   { value: 'none', label: 'None', hint: 'No campaign' },
@@ -24,7 +24,13 @@ export function Advertising({ state, onChange }: ChallengeContentProps) {
       def={CHALLENGE_BY_KEY.advertising}
       state={state}
       onChange={onChange}
-      renderControls={(config, patch) => (
+      renderControls={(config, patch) => <AdvertisingControls config={config} patch={patch} />}
+    />
+  );
+}
+
+export function AdvertisingControls({ config, patch }: ControlProps) {
+  return (
         <div className="space-y-5">
           <p className="text-xs text-[var(--color-text-muted)]">Batching fixed at Tables of 8.</p>
           <Slider
@@ -51,7 +57,5 @@ export function Advertising({ state, onChange }: ChallengeContentProps) {
             columns={3}
           />
         </div>
-      )}
-    />
-  );
+      );
 }

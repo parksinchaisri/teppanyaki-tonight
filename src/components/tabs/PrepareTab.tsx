@@ -1,5 +1,6 @@
 import { PARAMS } from '../../engine/params';
 import { money } from '../../lib/format';
+import { useApp } from '../../store/appContext';
 
 function FlowNode({ title, subtitle, tone }: { title: string; subtitle: string; tone: string }) {
   return (
@@ -19,23 +20,50 @@ function Arrow() {
   return <span className="text-2xl text-[var(--color-text-muted)]">→</span>;
 }
 
+// The guarded briefing copy, used verbatim.
+const GUARDED_COPY = [
+  "You're running one restaurant service, start to finish. Guests arrive, wait for a table, get seated, eat, and leave. Your only goal: end the night with the highest profit.",
+  "One fact matters more than any other: your kitchen team can only work on one full table at a time. A half-empty table still takes their full attention — so an empty seat isn't free, it's wasted capacity for that whole seating.",
+  "Every choice tonight — how you group guests, how big your waiting area is, how fast tables turn over, how much you promote the restaurant — comes back to one question: how do I keep my kitchen team working at full capacity?",
+];
+
 export function PrepareTab({ onStart }: { onStart: () => void }) {
+  const { settings } = useApp();
+  const guarded = settings.preparePageMode === 'guarded';
+
   return (
     <div className="mx-auto max-w-4xl space-y-8">
-      <section>
-        <h1 className="text-3xl font-bold">Welcome to Teppanyaki Tonight</h1>
-        <p className="mt-3 text-[var(--color-text-secondary)]">
-          You are the manager-on-duty of a teppanyaki restaurant for a single evening service
-          (6:00 PM–10:30 PM). Guests arrive, wait at the bar, and are seated in groups at
-          chef-staffed grill tables. Your job is to choose operating policies — how you batch guests, how big the
-          bar is, how long seatings run, how much you advertise — that make the most profit by the end of the night.
-        </p>
-        <p className="mt-3 text-[var(--color-text-secondary)]">
-          The one idea that runs through every challenge: <span className="text-[var(--color-text-primary)]">your
-          chef is a batch server.</span> Seating a party of four at an eight-seat table doesn&apos;t just waste four
-          chairs — it wastes <em>half the chef&apos;s capacity</em> for the entire length of that seating. Almost
-          everything you discover tonight traces back to that fact.
-        </p>
+      {/* Scoped strictly to this tab's prose — challenge controls, the app name
+          and every other page are untouched. */}
+      <section
+        style={guarded ? { userSelect: 'none', WebkitUserSelect: 'none' } : undefined}
+        onContextMenu={guarded ? (e) => e.preventDefault() : undefined}
+      >
+        {guarded ? (
+          <>
+            {GUARDED_COPY.map((para) => (
+              <p key={para} className="mt-3 first:mt-0 text-[var(--color-text-secondary)]">
+                {para}
+              </p>
+            ))}
+          </>
+        ) : (
+          <>
+            <h1 className="text-3xl font-bold">Welcome to Teppanyaki Tonight</h1>
+            <p className="mt-3 text-[var(--color-text-secondary)]">
+              You are the manager-on-duty of a teppanyaki restaurant for a single evening service
+              (6:00 PM–10:30 PM). Guests arrive, wait at the bar, and are seated in groups at
+              chef-staffed grill tables. Your job is to choose operating policies — how you batch guests, how big the
+              bar is, how long seatings run, how much you advertise — that make the most profit by the end of the night.
+            </p>
+            <p className="mt-3 text-[var(--color-text-secondary)]">
+              The one idea that runs through every challenge: <span className="text-[var(--color-text-primary)]">your
+              chef is a batch server.</span> Seating a party of four at an eight-seat table doesn&apos;t just waste four
+              chairs — it wastes <em>half the chef&apos;s capacity</em> for the entire length of that seating. Almost
+              everything you discover tonight traces back to that fact.
+            </p>
+          </>
+        )}
       </section>
 
       <section className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-6">

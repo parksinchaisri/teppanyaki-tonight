@@ -315,6 +315,24 @@ export function SetupTab({ classCode, settings, params }: Props) {
         </div>
       </section>
 
+      {/* ── Prepare tab presentation ───────────────────────────────────────── */}
+      <label className="flex cursor-pointer items-center justify-between gap-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
+        <span>
+          <span className="font-medium">Guarded Prepare page</span>
+          <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
+            Shows a condensed briefing and makes the text awkward to select or copy.
+          </p>
+        </span>
+        <select
+          value={settings.preparePageMode ?? 'standard'}
+          onChange={(e) => patch({ preparePageMode: e.target.value as ClassSettings['preparePageMode'] })}
+          className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface-raised)] px-3 py-2 text-sm outline-none"
+        >
+          <option value="standard">Standard briefing</option>
+          <option value="guarded">Guarded briefing</option>
+        </select>
+      </label>
+
       {/* ── Class-wide student experience ──────────────────────────────────── */}
       <section className="space-y-3">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-[var(--color-text-secondary)]">

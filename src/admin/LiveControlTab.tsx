@@ -9,6 +9,7 @@ import {
   activeChallengeKeys,
   leaderboardVisibleFor,
   theaterJoinUrlDisplay,
+  theaterRevealCount,
   type ClassSettings,
   type LeaderboardRow,
   type LiveSessionState,
@@ -148,6 +149,20 @@ export function LiveControlTab({ classCode, settings, params }: Props) {
             The class code is always shown on the lobby screen — students need it even when they get the link
             elsewhere.
           </p>
+
+          <label className="mt-3 flex items-center gap-2 text-sm">
+            <span className="text-[var(--color-text-secondary)]">Results reveal counts down from</span>
+            <select
+              value={theaterRevealCount(settings)}
+              onChange={(e) =>
+                patch({ theaterRevealCount: Number(e.target.value) as ClassSettings['theaterRevealCount'] })
+              }
+              className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface-raised)] px-3 py-2 text-sm outline-none"
+            >
+              <option value={5}>Top 5</option>
+              <option value={10}>Top 10</option>
+            </select>
+          </label>
         </div>
       </div>
 

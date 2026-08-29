@@ -1,7 +1,7 @@
 import { CHALLENGE_BY_KEY } from '../../challenges/definitions';
 import type { BatchingMode } from '../../engine/types';
 import { RadioGroup } from '../shared/RadioGroup';
-import { ChallengeShell, type ChallengeContentProps } from './ChallengeShell';
+import { ChallengeShell, type ChallengeContentProps, type ControlProps } from './ChallengeShell';
 
 export function Batching({ state, onChange }: ChallengeContentProps) {
   return (
@@ -9,7 +9,12 @@ export function Batching({ state, onChange }: ChallengeContentProps) {
       def={CHALLENGE_BY_KEY.batching}
       state={state}
       onChange={onChange}
-      renderControls={(config, patch) => {
+      renderControls={(config, patch) => <BatchingControls config={config} patch={patch} />}
+    />
+  );
+}
+
+export function BatchingControls({ config, patch }: ControlProps) {
         const on = config.batching.early === 'eight';
         return (
           <RadioGroup
@@ -22,7 +27,4 @@ export function Batching({ state, onChange }: ChallengeContentProps) {
             onChange={(v: BatchingMode) => patch({ batching: { early: v, peak: v, late: v } })}
           />
         );
-      }}
-    />
-  );
-}
+      }

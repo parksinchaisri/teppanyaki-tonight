@@ -43,6 +43,13 @@ export function makeInitialChallengeState(def: ChallengeDef, paramDefaults?: Par
   };
 }
 
+// A challenge's own config panel, factored out so Theater Mode's briefing can
+// project the real controls read-only instead of a hand-written summary.
+export interface ControlProps {
+  config: SimConfig;
+  patch: (p: Partial<SimConfig>) => void;
+}
+
 export interface ChallengeContentProps {
   state: ChallengeUIState;
   onChange: ChallengeOnChange;

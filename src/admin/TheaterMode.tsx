@@ -20,15 +20,20 @@ import {
   DEFAULT_SETTINGS,
   activeChallengeKeys,
   theaterJoinUrlDisplay,
+  theaterRevealCount,
   type ClassSettings,
   type LeaderboardRow,
   type LiveSessionState,
   type StudentRow,
 } from '../firebase/types';
 import { CHALLENGE_BY_KEY } from '../challenges/definitions';
+import type { ParamOverrides } from '../engine/types';
 import { money } from '../lib/format';
 import { useCountdown } from '../components/shared/useCountdown';
 import { RankBoard } from './RankBoard';
+import { BriefingControlsPreview } from './BriefingControlsPreview';
+import { computeRanked } from './RankBoard';
+import { RankReveal } from './RankReveal';
 import { avatarInitial, avatarStyle } from '../lib/avatar';
 
 export function TheaterMode() {
@@ -59,6 +64,7 @@ export function TheaterMode() {
 
 function TheaterSession({ classCode }: { classCode: string }) {
   const [settings, setSettings] = useState<ClassSettings>(DEFAULT_SETTINGS);
+  const [params, setParams] = useState<ParamOverrides>({});
   const [live, setLive] = useState<LiveSessionState>(DEFAULT_LIVE_STATE);
   const [students, setStudents] = useState<StudentRow[]>([]);
   const [rows, setRows] = useState<LeaderboardRow[]>([]);
@@ -69,8 +75,17 @@ function TheaterSession({ classCode }: { classCode: string }) {
   // A3: shown for a beat when the round closes itself because everyone is in.
   const [autoClosing, setAutoClosing] = useState(false);
   const autoCloseFired = useRef<string | null>(null);
+  // The reveal plays once per challenge, on first entry to round_results.
+  const [revealDone, setRevealDone] = useState<Set<string>>(new Set());
 
-  useEffect(() => subscribeSettings(classCode, (s) => setSettings(s)), [classCode]);
+  useEffect(
+    () =>
+      subscribeSettings(classCode, (s, p) => {
+        setSettings(s);
+        setParams(p);
+      }),
+    [classCode],
+  );
   useEffect(() => subscribeLiveState(classCode, setLive), [classCode]);
   useEffect(() => subscribeStudents(classCode, setStudents), [classCode]);
   useEffect(() => subscribeLeaderboard(classCode, null, setRows), [classCode]);
@@ -235,8 +250,14 @@ function TheaterSession({ classCode }: { classCode: string }) {
             customUrl={settings.theaterCustomJoinUrl ?? ''}
           />
         )}
-        {live.phase === 'briefing' && (
-          <BriefingView title={def?.title} description={def?.description} levers={def?.levers ?? []} />
+        {live.phase === 'briefing' && live.currentChallenge && (
+          <BriefingView
+            title={def?.title}
+            description={def?.description}
+            challengeKey={live.currentChallenge}
+            settings={settings}
+            params={params}
+          />
         )}
         {live.phase === 'timed_round' && (
           <TimedRoundView
@@ -254,6 +275,11 @@ function TheaterSession({ classCode }: { classCode: string }) {
             students={students}
             order={order}
             challengeKey={live.currentChallenge}
+            revealCount={theaterRevealCount(settings)}
+            revealPending={!revealDone.has(live.currentChallenge)}
+            onRevealDone={() =>
+              setRevealDone((prev) => new Set(prev).add(live.currentChallenge as string))
+            }
           />
         )}
         {live.phase === 'wrap_up' && <WrapUpView rows={rows} students={students} order={order} />}
@@ -389,33 +415,25 @@ function FlavorStrip() {
 function BriefingView({
   title,
   description,
-  levers,
+  challengeKey,
+  settings,
+  params,
 }: {
   title?: string;
   description?: string;
-  levers: string[];
+  challengeKey: string;
+  settings: ClassSettings;
+  params: ParamOverrides;
 }) {
   return (
-    <div className="mx-auto max-w-5xl text-center">
+    <div className="mx-auto max-w-5xl overflow-y-auto text-center" style={{ maxHeight: 'calc(100vh - 10rem)' }}>
       <p className="text-xl uppercase tracking-[0.3em] text-[var(--color-accent)]">Next challenge</p>
-      <h1 className="mt-5 text-5xl font-bold leading-tight lg:text-6xl">{title ?? 'Challenge'}</h1>
-      <p className="mt-6 text-xl leading-relaxed text-[var(--color-text-secondary)] lg:text-2xl">{description}</p>
+      <h1 className="mt-4 text-5xl font-bold leading-tight lg:text-6xl">{title ?? 'Challenge'}</h1>
+      <p className="mt-5 text-xl leading-relaxed text-[var(--color-text-secondary)] lg:text-2xl">{description}</p>
 
-      {/* D4: what students can actually change this round — something concrete
-          to point at while the Simulate button is still held. */}
-      {levers.length > 0 && (
-        <div className="mx-auto mt-8 max-w-3xl rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-6 text-left">
-          <p className="text-sm uppercase tracking-[0.2em] text-[var(--color-accent)]">What you can change</p>
-          <ul className="mt-3 space-y-2">
-            {levers.map((l) => (
-              <li key={l} className="flex gap-3 text-lg text-[var(--color-text-secondary)] lg:text-xl">
-                <span className="text-[var(--color-accent)]">▸</span>
-                {l}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+      {/* D4: the challenge's real config panel, inert — something concrete to
+          point at while Simulate is still held. */}
+      <BriefingControlsPreview challengeKey={challengeKey} settings={settings} params={params} />
     </div>
   );
 }
@@ -476,6 +494,9 @@ function RoundResultsView({
   students,
   order,
   challengeKey,
+  revealCount,
+  revealPending,
+  onRevealDone,
 }: {
   classCode: string;
   live: LiveSessionState;
@@ -483,8 +504,17 @@ function RoundResultsView({
   students: StudentRow[];
   order: string[];
   challengeKey: string;
+  revealCount: number;
+  revealPending: boolean;
+  onRevealDone: () => void;
 }) {
   const view = live.roundView;
+  // Only "This Round" gets the reveal; Cumulative stays a plain toggle.
+  const showReveal = view === 'round' && revealPending;
+  const ranked = useMemo(
+    () => computeRanked({ rows, students, order, challengeKey, view: 'round', roundHistory: live.roundHistory }),
+    [rows, students, order, challengeKey, live.roundHistory],
+  );
 
   return (
     <div className="mx-auto w-full max-w-4xl">
@@ -508,14 +538,19 @@ function RoundResultsView({
           ))}
         </div>
       </div>
-      <RankBoard
-        rows={rows}
-        students={students}
-        order={order}
-        challengeKey={challengeKey}
-        view={view}
-        roundHistory={live.roundHistory}
-      />
+
+      {showReveal ? (
+        <RankReveal ranked={ranked} count={revealCount} onDone={onRevealDone} />
+      ) : (
+        <RankBoard
+          rows={rows}
+          students={students}
+          order={order}
+          challengeKey={challengeKey}
+          view={view}
+          roundHistory={live.roundHistory}
+        />
+      )}
     </div>
   );
 }

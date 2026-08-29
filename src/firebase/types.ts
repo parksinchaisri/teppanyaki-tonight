@@ -64,6 +64,14 @@ export interface ClassSettings {
   // The class code is always shown regardless.
   theaterJoinUrlDisplay: TheaterJoinUrlDisplay;
   theaterCustomJoinUrl: string;
+
+  // 'guarded' swaps the Prepare tab's briefing prose for a condensed version and
+  // makes it awkward to select or right-click. Friction only — anyone who wants
+  // the text can still read it off the screen or the page source.
+  preparePageMode: 'standard' | 'guarded';
+
+  // How many places the Theater round-results reveal counts down through.
+  theaterRevealCount: 5 | 10;
 }
 
 export type TheaterJoinUrlDisplay = 'full' | 'custom' | 'hidden';
@@ -89,6 +97,8 @@ export const DEFAULT_SETTINGS: ClassSettings = {
   reflectionGatesProgress: false,
   theaterJoinUrlDisplay: 'full',
   theaterCustomJoinUrl: '',
+  preparePageMode: 'standard',
+  theaterRevealCount: 5,
 };
 
 // ── Per-challenge settings accessors ────────────────────────────────────────
@@ -126,6 +136,10 @@ export function reflectionsRequiredFor(s: ClassSettings, key: string): boolean {
 
 export function confidenceRatingEnabledFor(s: ClassSettings, key: string): boolean {
   return s.confidenceRatingEnabled?.[key] ?? false;
+}
+
+export function theaterRevealCount(s: ClassSettings): 5 | 10 {
+  return s.theaterRevealCount === 10 ? 10 : 5;
 }
 
 export function theaterJoinUrlDisplay(s: ClassSettings): TheaterJoinUrlDisplay {

@@ -13,6 +13,37 @@ import { useFlip } from '../components/shared/useFlip';
 
 // The shared ranked board used by Theater Mode and the admin Live Board:
 // proportional bars, rank movement, streaks and animated reordering.
+// The exact ranking the board renders, exposed so the Theater reveal animates
+// the same rows in the same order rather than recomputing them differently.
+export function computeRanked({
+  rows,
+  students,
+  order,
+  challengeKey,
+  view,
+  roundHistory,
+}: {
+  rows: LeaderboardRow[];
+  students: StudentRow[];
+  order: string[];
+  challengeKey: string | null;
+  view: 'round' | 'cumulative';
+  roundHistory: LiveSessionState['roundHistory'];
+}): RankedRow[] {
+  const standings =
+    view === 'cumulative'
+      ? cumulativeStandings(rows, order, students)
+      : challengeKey
+        ? roundStandings(rows, students, challengeKey)
+        : [];
+  const previous = previousRanks(rows, order, challengeKey, view, students);
+  const contribution =
+    view === 'cumulative' && challengeKey
+      ? new Map(rows.filter((r) => r.challengeKey === challengeKey).map((r) => [r.studentId, r.bestAvgProfit]))
+      : undefined;
+  return rankRows(standings, previous, roundHistory, contribution);
+}
+
 export function RankBoard({
   rows,
   students,
@@ -32,23 +63,10 @@ export function RankBoard({
   compact?: boolean;
   maxHeight?: string;
 }) {
-  const ranked = useMemo(() => {
-    const standings =
-      view === 'cumulative'
-        ? cumulativeStandings(rows, order, students)
-        : challengeKey
-          ? roundStandings(rows, students, challengeKey)
-          : [];
-    const previous = previousRanks(rows, order, challengeKey, view, students);
-    // In cumulative view, how much of the total came from this round.
-    const contribution =
-      view === 'cumulative' && challengeKey
-        ? new Map(
-            rows.filter((r) => r.challengeKey === challengeKey).map((r) => [r.studentId, r.bestAvgProfit]),
-          )
-        : undefined;
-    return rankRows(standings, previous, roundHistory, contribution);
-  }, [rows, students, order, challengeKey, view, roundHistory]);
+  const ranked = useMemo(
+    () => computeRanked({ rows, students, order, challengeKey, view, roundHistory }),
+    [rows, students, order, challengeKey, view, roundHistory],
+  );
 
   const climber = useMemo(() => biggestClimber(ranked), [ranked]);
   const flipRef = useFlip();
