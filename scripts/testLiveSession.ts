@@ -10,8 +10,11 @@ import {
   isRoundClosed,
   nextChallengeKey,
   normalizeLiveState,
+  buildRoster,
   reflectionGateBlocker,
   roundStandings,
+  sortRoster,
+  NUDGE_AFTER_MS,
 } from '../src/firebase/liveLogic';
 import { DEFAULT_SETTINGS, type AttemptRow, type ClassSettings, type LeaderboardRow, type LiveSessionState, type StudentRow } from '../src/firebase/types';
 
@@ -131,12 +134,38 @@ check('first challenge never gated', reflectionGateBlocker(gated, 'batching', {}
 check('per-challenge override respected', reflectionGateBlocker(settings({ reflectionGatesProgress: true, reflectionsRequired: true, reflectionsRequiredByChallenge: { batching: false } }), 'barSize', {}) === null, 'batching reflection not required');
 check('gates in live mode too', reflectionGateBlocker(settings({ reflectionGatesProgress: true, reflectionsRequired: true, liveSessionMode: true }), 'diningTime', { batching: true }) === 'barSize', 'unlock does not bypass it');
 
-section('8. Countdown formatting');
+section('8. Iteration 9 B1 — roster activity');
+const NOW = 10_000_000;
+const rosterStudents: StudentRow[] = [
+  { id: 'ana', displayName: 'Ana', joinedAt: NOW - 10 * 60 * 1000 },   // long ago, active
+  { id: 'bo', displayName: 'Bo', joinedAt: NOW - 10 * 60 * 1000 },     // long ago, nothing
+  { id: 'cy', displayName: 'Cy', joinedAt: NOW - 30 * 1000 },          // just joined, nothing
+];
+const rosterAttempts = [attempt('ana', 'batching', 1200, 1), attempt('ana', 'barSize', 900, 1)];
+rosterAttempts[0].timestamp = NOW - 60 * 1000;
+rosterAttempts[1].timestamp = NOW - 20 * 1000;
+const rosterResults = [row('ana', 'batching', 1200)];
+const entries = buildRoster(rosterStudents, rosterAttempts, rosterResults, 'batching', NOW);
+const byId = (id: string) => entries.find((e) => e.studentId === id)!;
+check('attempted flag', byId('ana').hasAttempted && !byId('bo').hasAttempted, 'ana attempted batching');
+check('submitted flag', byId('ana').hasSubmitted && !byId('bo').hasSubmitted, 'ana submitted');
+check('last activity is most recent across challenges', byId('ana').lastActivity === NOW - 20 * 1000, 'barSize attempt is newer');
+check('no activity → null', byId('bo').lastActivity === null, 'bo never simulated');
+check('flags the long-idle student', byId('bo').needsNudge, `joined ${(NOW - byId('bo').joinedAt) / 60000}m ago, no attempts`);
+check('does not flag a fresh joiner', !byId('cy').needsNudge, `only ${(NOW - byId('cy').joinedAt) / 1000}s in, under the ${NUDGE_AFTER_MS / 60000}m threshold`);
+check('does not flag an active student', !byId('ana').needsNudge, 'ana has attempts');
+check('no current challenge → no flags', buildRoster(rosterStudents, [], [], null, NOW).every((e) => !e.needsNudge), 'self-paced class');
+const stragglers = sortRoster(entries, 'unsubmitted');
+check('stragglers sort first', stragglers[stragglers.length - 1].studentId === 'ana', `order: ${stragglers.map((e) => e.studentId).join(' > ')}`);
+check('alphabetical sort', sortRoster(entries, 'alphabetical').map((e) => e.displayName).join(',') === 'Ana,Bo,Cy', 'A–Z');
+check('recent-activity sort', sortRoster(entries, 'recent')[0].studentId === 'ana', 'most recently active first');
+
+section('9. Countdown formatting');
 check('minutes and seconds', formatCountdown(125_000) === '02:05', formatCountdown(125_000));
 check('pads correctly', formatCountdown(9_000) === '00:09', formatCountdown(9_000));
 check('never goes negative', formatCountdown(-5_000) === '00:00', formatCountdown(-5_000));
 
-section('9. Missing/partial live document falls back safely');
+section('10. Missing/partial live document falls back safely');
 const blank = normalizeLiveState(undefined);
 check('defaults to lobby', blank.phase === 'lobby' && blank.currentChallenge === null, `${blank.phase}`);
 check('rejects a bogus phase', normalizeLiveState({ phase: 'nonsense' }).phase === 'lobby', 'unknown phase ignored');

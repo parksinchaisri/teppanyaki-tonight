@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { getReflections } from '../firebase/reflections';
 import type { ReflectionRow } from '../firebase/types';
 import { CHALLENGES, challengeLabel } from '../challenges/definitions';
-import { downloadCSV, toCSV } from '../lib/csv';
+import { downloadCSV } from '../lib/csv';
+import { reflectionsCSV } from '../lib/exports';
 
 export function ReflectionsTab({ classCode }: { classCode: string }) {
   const [rows, setRows] = useState<ReflectionRow[]>([]);
@@ -36,11 +37,7 @@ export function ReflectionsTab({ classCode }: { classCode: string }) {
   }, [rows, filter, search]);
 
   function exportCSV() {
-    const csv = toCSV(
-      ['studentName', 'challengeKey', 'questionText', 'response', 'submittedAt'],
-      filtered.map((r) => [r.studentName, r.challengeKey, r.questionText, r.response, new Date(r.submittedAt).toISOString()]),
-    );
-    downloadCSV(`teppanyaki-reflections-${classCode}.csv`, csv);
+    downloadCSV(`teppanyaki-reflections-${classCode}.csv`, reflectionsCSV(filtered));
   }
 
   return (

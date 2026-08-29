@@ -4,7 +4,8 @@ import { getAttempts } from '../firebase/attempts';
 import type { LeaderboardRow } from '../firebase/types';
 import { CHALLENGES, challengeLabel } from '../challenges/definitions';
 import { money } from '../lib/format';
-import { downloadCSV, toCSV } from '../lib/csv';
+import { downloadCSV } from '../lib/csv';
+import { attemptsCSV, resultsCSV } from '../lib/exports';
 
 export function ResultsTab({ classCode }: { classCode: string }) {
   const [rows, setRows] = useState<LeaderboardRow[]>([]);
@@ -21,29 +22,7 @@ export function ResultsTab({ classCode }: { classCode: string }) {
   const sorted = [...filtered].sort((a, b) => b.bestAvgProfit - a.bestAvgProfit);
 
   function exportCSV() {
-    const csv = toCSV(
-      [
-        'Anonymous ID',
-        'studentName',
-        'challengeKey',
-        'bestAvgProfit',
-        'attempts',
-        'autoSubmitted',
-        'lastSubmittedAt',
-        'bestConfig',
-      ],
-      sorted.map((r) => [
-        r.studentId,
-        r.studentName,
-        r.challengeKey,
-        Math.round(r.bestAvgProfit),
-        r.attempts,
-        r.autoSubmitted,
-        new Date(r.lastSubmittedAt).toISOString(),
-        JSON.stringify(r.bestConfig),
-      ]),
-    );
-    downloadCSV(`teppanyaki-results-${classCode}.csv`, csv);
+    downloadCSV(`teppanyaki-results-${classCode}.csv`, resultsCSV(sorted));
   }
 
   // The full audit trail — every Simulate run, not just each student's best.
@@ -53,36 +32,7 @@ export function ResultsTab({ classCode }: { classCode: string }) {
     try {
       const all = await getAttempts(classCode);
       const attempts = filter === 'all' ? all : all.filter((a) => a.challengeKey === filter);
-      const csv = toCSV(
-        [
-          'Anonymous ID',
-          'displayName',
-          'challengeKey',
-          'attemptNumber',
-          'isFirstAttempt',
-          'config',
-          'avgProfit',
-          'avgLost',
-          'chefUtilisation',
-          'bestNight',
-          'confidenceRating',
-          'timestamp',
-        ],
-        attempts.map((a) => [
-          a.studentId,
-          a.displayName,
-          a.challengeKey,
-          a.attemptNumber,
-          a.isFirstAttempt,
-          a.config,
-          Math.round(a.resultSummary.avgProfit),
-          a.resultSummary.avgLost.toFixed(1),
-          a.resultSummary.chefUtilisation.toFixed(4),
-          Math.round(a.resultSummary.bestNight),
-          a.confidenceRating ?? '',
-          a.timestamp ? new Date(a.timestamp).toISOString() : '',
-        ]),
-      );
+      const csv = attemptsCSV(attempts);
       downloadCSV(`teppanyaki-attempts-${classCode}.csv`, csv);
     } catch {
       // Almost always the `attempts` Firestore rules not being deployed yet —

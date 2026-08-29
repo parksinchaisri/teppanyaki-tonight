@@ -4,6 +4,7 @@ import { JoinScreen } from './components/onboarding/JoinScreen';
 import { MainApp } from './components/MainApp';
 import { AdminApp } from './admin/AdminApp';
 import { TheaterMode } from './admin/TheaterMode';
+import { GameManager } from './admin/GameManager';
 
 export default function App() {
   const { session } = useApp();
@@ -13,6 +14,7 @@ export default function App() {
       <Route path="/play" element={session ? <MainApp /> : <Navigate to="/" replace />} />
       <Route path="/admin" element={<AdminApp />} />
       <Route path="/admin/theater" element={<TheaterMode />} />
+      <Route path="/admin/manager" element={<GameManager />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

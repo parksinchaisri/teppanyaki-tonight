@@ -11,6 +11,10 @@ service cloud.firestore {
       // Allow updates so the instructor dashboard can live-save the `settings`
       // object (PIN is verified client-side). No auth, by design for the classroom.
       allow update: if true;
+      // Deleting a class is offered only from the Game Manager, which requires
+      // that class's own instructor PIN and an export first (both enforced
+      // client-side, consistent with the rest of this classroom tool).
+      allow delete: if true;
 
       // Student writes their own result; leaderboard is public within the class.
       match /studentResults/{docId} {
@@ -41,6 +45,8 @@ service cloud.firestore {
           && request.resource.data.studentId is string
           && request.resource.data.attemptNumber is number;
         allow read: if true;
+        // Never deleted by "Reset Class Data" — only by deleting the whole class.
+        allow delete: if true;
       }
 
       // Live session flow (phase, current challenge, timer, leaderboard view).
@@ -49,11 +55,13 @@ service cloud.firestore {
       match /live/{docId} {
         allow read: if true;
         allow create, update: if true;
+        allow delete: if true;  // whole-class deletion only
       }
 
       match /students/{studentId} {
         allow create, update: if true;
         allow read: if true;
+        allow delete: if true;  // whole-class deletion only
       }
     }
   }

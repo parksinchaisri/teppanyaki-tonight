@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { createClass, subscribeSettings } from '../firebase/classSettings';
 import { firebaseConfigured } from '../firebase/config';
 import { DEFAULT_PARAMS, DEFAULT_SETTINGS, type ClassSettings } from '../firebase/types';
@@ -6,11 +7,12 @@ import type { ParamOverrides } from '../engine/types';
 import { AdminLogin } from './AdminLogin';
 import { SettingsTab } from './SettingsTab';
 import { SessionControlTab } from './SessionControlTab';
+import { RosterTab } from './RosterTab';
 import { LiveBoardTab } from './LiveBoardTab';
 import { ResultsTab } from './ResultsTab';
 import { ReflectionsTab } from './ReflectionsTab';
 
-type AdminTab = 'settings' | 'session' | 'live' | 'results' | 'reflections';
+type AdminTab = 'settings' | 'session' | 'roster' | 'live' | 'results' | 'reflections';
 
 export function AdminApp() {
   const [classCode, setClassCode] = useState('');
@@ -159,6 +161,14 @@ export function AdminApp() {
               )}
             </div>
           )}
+          <div className="mt-5 border-t border-[var(--color-border)] pt-4 text-center">
+            <Link
+              to="/admin/manager"
+              className="text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-accent)]"
+            >
+              Manage all classes →
+            </Link>
+          </div>
         </div>
       </div>
     );
@@ -167,6 +177,7 @@ export function AdminApp() {
   const TABS: { key: AdminTab; label: string }[] = [
     { key: 'settings', label: 'Settings' },
     { key: 'session', label: 'Session Control' },
+    { key: 'roster', label: 'Roster' },
     { key: 'live', label: 'Live Board' },
     { key: 'results', label: 'Results' },
     { key: 'reflections', label: 'Reflections' },
@@ -217,6 +228,7 @@ export function AdminApp() {
         )}
         {tab === 'settings' && <SettingsTab classCode={classCode} settings={settings} params={params} />}
         {tab === 'session' && <SessionControlTab classCode={classCode} settings={settings} params={params} />}
+        {tab === 'roster' && <RosterTab classCode={classCode} settings={settings} />}
         {tab === 'live' && <LiveBoardTab classCode={classCode} settings={settings} />}
         {tab === 'results' && <ResultsTab classCode={classCode} />}
         {tab === 'reflections' && <ReflectionsTab classCode={classCode} />}

@@ -188,6 +188,72 @@ export function bestAttemptsByStudent(attempts: AttemptRow[], challengeKey: stri
   return best;
 }
 
+// ── B1: roster / activity ───────────────────────────────────────────────────
+
+export interface RosterEntry {
+  studentId: string;
+  displayName: string;
+  joinedAt: number;
+  lastActivity: number | null; // most recent attempt across any challenge
+  hasAttempted: boolean; // for the current live challenge
+  hasSubmitted: boolean; // for the current live challenge
+  needsNudge: boolean; // joined a while ago, nothing logged this challenge
+}
+
+export type RosterSort = 'alphabetical' | 'recent' | 'unsubmitted';
+
+// Students who joined longer ago than this with no attempt on the current
+// challenge get flagged — a glanceable "may be stuck", not a notification.
+export const NUDGE_AFTER_MS = 3 * 60 * 1000;
+
+export function buildRoster(
+  students: StudentRow[],
+  attempts: AttemptRow[],
+  results: LeaderboardRow[],
+  currentChallenge: string | null,
+  now: number,
+): RosterEntry[] {
+  const lastByStudent = new Map<string, number>();
+  const attemptedCurrent = new Set<string>();
+  for (const a of attempts) {
+    const prev = lastByStudent.get(a.studentId) ?? 0;
+    if (a.timestamp > prev) lastByStudent.set(a.studentId, a.timestamp);
+    if (currentChallenge && a.challengeKey === currentChallenge) attemptedCurrent.add(a.studentId);
+  }
+  const submittedCurrent = new Set(
+    results.filter((r) => currentChallenge && r.challengeKey === currentChallenge).map((r) => r.studentId),
+  );
+
+  return students.map((s) => {
+    const hasAttempted = attemptedCurrent.has(s.id);
+    return {
+      studentId: s.id,
+      displayName: s.displayName,
+      joinedAt: s.joinedAt,
+      lastActivity: lastByStudent.get(s.id) ?? null,
+      hasAttempted,
+      hasSubmitted: submittedCurrent.has(s.id),
+      needsNudge: Boolean(currentChallenge) && !hasAttempted && now - s.joinedAt > NUDGE_AFTER_MS,
+    };
+  });
+}
+
+export function sortRoster(rows: RosterEntry[], sort: RosterSort): RosterEntry[] {
+  const out = [...rows];
+  if (sort === 'alphabetical') {
+    return out.sort((a, b) => a.displayName.localeCompare(b.displayName));
+  }
+  if (sort === 'recent') {
+    return out.sort((a, b) => (b.lastActivity ?? 0) - (a.lastActivity ?? 0));
+  }
+  // Stragglers first: not submitted, then not attempted, then least recent.
+  return out.sort((a, b) => {
+    if (a.hasSubmitted !== b.hasSubmitted) return a.hasSubmitted ? 1 : -1;
+    if (a.hasAttempted !== b.hasAttempted) return a.hasAttempted ? 1 : -1;
+    return (a.lastActivity ?? 0) - (b.lastActivity ?? 0);
+  });
+}
+
 export function formatCountdown(msRemaining: number): string {
   const total = Math.max(0, Math.ceil(msRemaining / 1000));
   const m = Math.floor(total / 60);

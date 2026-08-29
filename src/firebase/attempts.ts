@@ -95,6 +95,22 @@ export function subscribeAttemptCounts(
   );
 }
 
+// Live subscription to every attempt in a class, for the roster/activity panel.
+export function subscribeAttempts(classCode: string, cb: (rows: AttemptRow[]) => void): () => void {
+  if (!firebaseConfigured) {
+    cb([]);
+    return () => {};
+  }
+  return onSnapshot(
+    collection(db, 'classes', classCode, 'attempts'),
+    (snap) => cb(snap.docs.map((d) => attemptFromDoc(d.id, d.data()))),
+    (err) => {
+      console.warn('Attempts subscription failed (check Firestore rules for classes/*/attempts):', err);
+      cb([]);
+    },
+  );
+}
+
 // Admin-only full read of the audit trail, for the attempts CSV export.
 export async function getAttempts(classCode: string): Promise<AttemptRow[]> {
   if (!firebaseConfigured) return [];
