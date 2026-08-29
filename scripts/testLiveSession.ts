@@ -10,8 +10,12 @@ import {
   isRoundClosed,
   nextChallengeKey,
   normalizeLiveState,
+  biggestClimber,
   buildRoster,
+  previousRanks,
+  rankRows,
   reflectionGateBlocker,
+  streakFor,
   roundStandings,
   sortRoster,
   NUDGE_AFTER_MS,
@@ -33,7 +37,7 @@ function settings(over: Partial<ClassSettings> = {}): ClassSettings {
   return { ...DEFAULT_SETTINGS, liveSessionMode: true, activeChallenges: PLAYLIST, ...over };
 }
 function live(over: Partial<LiveSessionState> = {}): LiveSessionState {
-  return { phase: 'lobby', currentChallenge: null, timer: null, roundView: 'round', ...over };
+  return { phase: 'lobby', currentChallenge: null, timer: null, roundView: 'round', roundHistory: [], ...over };
 }
 function row(studentId: string, challengeKey: string, profit: number, over: Partial<LeaderboardRow> = {}): LeaderboardRow {
   return {
@@ -160,16 +164,47 @@ check('stragglers sort first', stragglers[stragglers.length - 1].studentId === '
 check('alphabetical sort', sortRoster(entries, 'alphabetical').map((e) => e.displayName).join(',') === 'Ana,Bo,Cy', 'A–Z');
 check('recent-activity sort', sortRoster(entries, 'recent')[0].studentId === 'ana', 'most recently active first');
 
-section('9. Countdown formatting');
+section('9. Iteration 9 D3 — ranking movement, streaks, climber');
+const ORDER = ['batching', 'barSize', 'diningTime'];
+// After round 1 ana led; in round 2 cy overtakes everyone.
+const d3rows = [
+  row('ana', 'batching', 1000), row('bo', 'batching', 900), row('cy', 'batching', 500),
+  row('ana', 'barSize', 100), row('bo', 'barSize', 200), row('cy', 'barSize', 1500),
+];
+const d3roster = [student('ana'), student('bo'), student('cy')];
+const prevCum = previousRanks(d3rows, ORDER, 'barSize', 'cumulative', d3roster);
+check('previous cumulative ranks exclude the current round', prevCum.get('ana') === 1 && prevCum.get('cy') === 3, `ana=${prevCum.get('ana')} cy=${prevCum.get('cy')}`);
+check('first challenge has no previous ranks', previousRanks(d3rows, ORDER, 'batching', 'cumulative', d3roster).size === 0, 'nothing precedes it');
+
+const nowCum = cumulativeStandings(d3rows, ORDER, d3roster);
+const history = [{ challengeKey: 'batching', top5: ['ana', 'bo', 'cy'] }, { challengeKey: 'barSize', top5: ['cy', 'ana', 'bo'] }];
+const contribution = new Map([['ana', 100], ['bo', 200], ['cy', 1500]]);
+const ranked = rankRows(nowCum, prevCum, history, contribution);
+const r = (id: string) => ranked.find((x) => x.studentId === id)!;
+check('ranks assigned in order', r('cy').rank === 1, `cy is #${r('cy').rank} on ${r('cy').value}`);
+check('climber delta positive', r('cy').delta === 2, `cy moved ${r('cy').delta}`);
+check('faller delta negative', r('ana').delta === -1, `ana moved ${r('ana').delta}`);
+check('round contribution surfaced', r('cy').roundDelta === 1500, `+${r('cy').roundDelta} this round`);
+check('bar share is relative to the leader', r('cy').share === 1 && r('ana').share < 1, `ana share ${r('ana').share.toFixed(2)}`);
+check('biggest climber identified', biggestClimber(ranked)?.studentId === 'cy', `${biggestClimber(ranked)?.studentId} +${biggestClimber(ranked)?.delta}`);
+check('no climber when nobody moves up', biggestClimber(rankRows(nowCum, new Map(), history)) === null, 'all deltas null');
+
+check('streak counts trailing rounds', streakFor(history, 'cy') === 2, `cy streak ${streakFor(history, 'cy')}`);
+check('streak breaks on a missed round', streakFor([{ challengeKey: 'a', top5: ['ana'] }, { challengeKey: 'b', top5: ['bo'] }], 'ana') === 0, 'ana missed the latest round');
+check('no history → no streak', streakFor([], 'ana') === 0, 'fresh session');
+
+section('10. Countdown formatting');
 check('minutes and seconds', formatCountdown(125_000) === '02:05', formatCountdown(125_000));
 check('pads correctly', formatCountdown(9_000) === '00:09', formatCountdown(9_000));
 check('never goes negative', formatCountdown(-5_000) === '00:00', formatCountdown(-5_000));
 
-section('10. Missing/partial live document falls back safely');
+section('11. Missing/partial live document falls back safely');
 const blank = normalizeLiveState(undefined);
 check('defaults to lobby', blank.phase === 'lobby' && blank.currentChallenge === null, `${blank.phase}`);
 check('rejects a bogus phase', normalizeLiveState({ phase: 'nonsense' }).phase === 'lobby', 'unknown phase ignored');
 check('keeps a valid timer', normalizeLiveState({ timer: { durationSeconds: 60, startedAt: 5, endsAt: 65 } }).timer?.endsAt === 65, 'timer preserved');
+check('missing roundHistory defaults to empty', normalizeLiveState({}).roundHistory.length === 0, 'no history');
+check('malformed history entries dropped', normalizeLiveState({ roundHistory: [{ challengeKey: 'a', top5: ['x'] }, { nope: 1 }] }).roundHistory.length === 1, 'only valid entries kept');
 
 console.log(failures === 0 ? '\n🎉 ALL CHECKS PASSED' : `\n❌ ${failures} CHECK(S) FAILED`);
 process.exit(failures === 0 ? 0 : 1);

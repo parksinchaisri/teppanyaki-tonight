@@ -16,8 +16,13 @@ export {
   bestAttemptsByStudent,
   cumulativeStandings,
   formatCountdown,
+  biggestClimber,
   buildRoster,
   isAwaitingTimer,
+  previousRanks,
+  rankRows,
+  streakFor,
+  type RankedRow,
   isRoundClosed,
   reflectionGateBlocker,
   sortRoster,
@@ -102,11 +107,14 @@ export async function setRoundView(classCode: string, roundView: 'round' | 'cumu
 }
 
 export async function resetToLobby(classCode: string): Promise<void> {
+  // A fresh session starts with no history, so streaks and rank movement do not
+  // carry over from the previous run of the class.
   await writeLive(classCode, {
     phase: 'lobby',
     currentChallenge: null,
     timer: null,
     roundView: 'round',
+    roundHistory: [],
   });
 }
 
@@ -235,11 +243,34 @@ export async function endRound(
 
   if (forced > 0) await batch.commit();
 
+  // Re-read after the forced writes so the recorded top 5 reflects them.
+  const finalSnap = await getDocs(
+    query(collection(db, 'classes', classCode, 'studentResults'), where('challengeKey', '==', challengeKey)),
+  );
+  const top5 = finalSnap.docs
+    .map((d) => d.data() as { studentId?: unknown; bestAvgProfit?: unknown })
+    .map((d) => ({
+      studentId: String(d.studentId ?? ''),
+      value: typeof d.bestAvgProfit === 'number' ? d.bestAvgProfit : 0,
+    }))
+    .filter((d) => d.studentId)
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 5)
+    .map((d) => d.studentId);
+
+  // Append this round to the history, replacing any earlier entry for the same
+  // challenge so re-closing a round cannot double-count a streak.
+  const live = await getLiveState(classCode);
+  const history = [
+    ...live.roundHistory.filter((h) => h.challengeKey !== challengeKey),
+    { challengeKey, top5 },
+  ];
+
   // Reveal this challenge's leaderboard, then advance the phase.
   await updateDoc(doc(db, 'classes', classCode), {
     [`settings.leaderboardVisible.${challengeKey}`]: true,
   });
-  await writeLive(classCode, { phase: 'round_results', roundView: 'round' });
+  await writeLive(classCode, { phase: 'round_results', roundView: 'round', roundHistory: history });
 
   return { forced, noSubmission };
 }

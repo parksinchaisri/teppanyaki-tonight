@@ -193,11 +193,17 @@ export interface LiveTimer {
   endsAt: number | null; // startedAt + durationSeconds * 1000, computed once
 }
 
+export interface RoundHistoryEntry {
+  challengeKey: string;
+  top5: string[]; // studentIds, best first — drives the top-5 streak badge
+}
+
 export interface LiveSessionState {
   phase: LivePhase;
   currentChallenge: string | null; // challenge key; null in lobby/wrap_up
   timer: LiveTimer | null;
   roundView: 'round' | 'cumulative';
+  roundHistory: RoundHistoryEntry[];
 }
 
 export const DEFAULT_LIVE_STATE: LiveSessionState = {
@@ -205,6 +211,7 @@ export const DEFAULT_LIVE_STATE: LiveSessionState = {
   currentChallenge: null,
   timer: null,
   roundView: 'round',
+  roundHistory: [],
 };
 
 export const DEFAULT_ROUND_SECONDS = 300; // 5 minutes

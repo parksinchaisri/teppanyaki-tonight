@@ -9,12 +9,10 @@ import {
   nextChallenge,
   nextChallengeKey,
   resetToLobby,
-  roundStandings,
   setRoundView,
   startClass,
   startTimer,
   subscribeLiveState,
-  type RoundStanding,
 } from '../firebase/liveSession';
 import {
   DEFAULT_LIVE_STATE,
@@ -29,6 +27,7 @@ import {
 import { CHALLENGE_BY_KEY } from '../challenges/definitions';
 import { money } from '../lib/format';
 import { useCountdown } from '../components/shared/useCountdown';
+import { RankBoard } from './RankBoard';
 
 export function TheaterMode() {
   const [classCode, setClassCode] = useState('');
@@ -227,7 +226,9 @@ function TheaterSession({ classCode }: { classCode: string }) {
 
       <main className="flex flex-1 flex-col justify-center px-10 py-8">
         {live.phase === 'lobby' && <LobbyView classCode={classCode} students={students} />}
-        {live.phase === 'briefing' && <BriefingView title={def?.title} description={def?.description} />}
+        {live.phase === 'briefing' && (
+          <BriefingView title={def?.title} description={def?.description} levers={def?.levers ?? []} />
+        )}
         {live.phase === 'timed_round' && (
           <TimedRoundView
             live={live}
@@ -286,14 +287,36 @@ function LobbyView({ classCode, students }: { classCode: string; students: Stude
   );
 }
 
-function BriefingView({ title, description }: { title?: string; description?: string }) {
+function BriefingView({
+  title,
+  description,
+  levers,
+}: {
+  title?: string;
+  description?: string;
+  levers: string[];
+}) {
   return (
     <div className="mx-auto max-w-5xl text-center">
       <p className="text-xl uppercase tracking-[0.3em] text-[var(--color-accent)]">Next challenge</p>
-      <h1 className="mt-5 text-6xl font-bold leading-tight lg:text-7xl">{title ?? 'Challenge'}</h1>
-      <p className="mt-8 text-2xl leading-relaxed text-[var(--color-text-secondary)] lg:text-3xl">
-        {description}
-      </p>
+      <h1 className="mt-5 text-5xl font-bold leading-tight lg:text-6xl">{title ?? 'Challenge'}</h1>
+      <p className="mt-6 text-xl leading-relaxed text-[var(--color-text-secondary)] lg:text-2xl">{description}</p>
+
+      {/* D4: what students can actually change this round — something concrete
+          to point at while the Simulate button is still held. */}
+      {levers.length > 0 && (
+        <div className="mx-auto mt-8 max-w-3xl rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-6 text-left">
+          <p className="text-sm uppercase tracking-[0.2em] text-[var(--color-accent)]">What you can change</p>
+          <ul className="mt-3 space-y-2">
+            {levers.map((l) => (
+              <li key={l} className="flex gap-3 text-lg text-[var(--color-text-secondary)] lg:text-xl">
+                <span className="text-[var(--color-accent)]">▸</span>
+                {l}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }
@@ -363,10 +386,6 @@ function RoundResultsView({
   challengeKey: string;
 }) {
   const view = live.roundView;
-  const standings =
-    view === 'cumulative'
-      ? cumulativeStandings(rows, order, students)
-      : roundStandings(rows, students, challengeKey);
 
   return (
     <div className="mx-auto w-full max-w-4xl">
@@ -390,7 +409,14 @@ function RoundResultsView({
           ))}
         </div>
       </div>
-      <StandingsList standings={standings} />
+      <RankBoard
+        rows={rows}
+        students={students}
+        order={order}
+        challengeKey={challengeKey}
+        view={view}
+        roundHistory={live.roundHistory}
+      />
     </div>
   );
 }
@@ -438,51 +464,31 @@ function WrapUpView({
       </div>
 
       {rest.length > 0 && (
-        <div className="mt-8">
-          <StandingsList standings={rest} startRank={podium.length + 1} />
+        <div className="mt-8 max-h-[40vh] space-y-2 overflow-y-auto pr-1 text-left">
+          {rest.map((s, i) => (
+            <div
+              key={s.studentId}
+              className={`flex items-center justify-between rounded-xl border px-6 py-3 ${
+                s.submitted
+                  ? 'border-[var(--color-border)] bg-[var(--color-surface)]'
+                  : 'border-dashed border-[var(--color-border)] opacity-50'
+              }`}
+            >
+              <span className="flex items-center gap-4">
+                <span className="w-10 font-mono text-xl text-[var(--color-text-muted)]">
+                  {s.submitted ? podium.length + i + 1 : '—'}
+                </span>
+                <span className="text-xl">{s.studentName}</span>
+              </span>
+              {s.submitted ? (
+                <span className="font-mono text-xl text-[var(--color-accent-green)]">{money(s.value)}</span>
+              ) : (
+                <span className="text-[var(--color-text-muted)]">No submission</span>
+              )}
+            </div>
+          ))}
         </div>
       )}
-    </div>
-  );
-}
-
-function StandingsList({ standings, startRank = 1 }: { standings: RoundStanding[]; startRank?: number }) {
-  if (!standings.length) {
-    return <p className="text-center text-xl text-[var(--color-text-muted)]">No students yet.</p>;
-  }
-  let rank = startRank - 1;
-  return (
-    <div className="space-y-2">
-      {standings.map((s) => {
-        if (s.submitted) rank += 1;
-        return (
-          <div
-            key={s.studentId}
-            className={`flex items-center justify-between rounded-xl border px-6 py-4 ${
-              s.submitted
-                ? 'border-[var(--color-border)] bg-[var(--color-surface)]'
-                : 'border-dashed border-[var(--color-border)] opacity-50'
-            }`}
-          >
-            <span className="flex items-center gap-4">
-              <span className="w-10 font-mono text-2xl text-[var(--color-text-muted)]">
-                {s.submitted ? rank : '—'}
-              </span>
-              <span className="text-2xl font-medium">{s.studentName}</span>
-              {s.autoSubmitted && (
-                <span className="rounded-full border border-[var(--color-accent-amber)]/50 px-2 py-0.5 text-xs text-[var(--color-accent-amber)]">
-                  auto
-                </span>
-              )}
-            </span>
-            {s.submitted ? (
-              <span className="font-mono text-2xl text-[var(--color-accent-green)]">{money(s.value)}</span>
-            ) : (
-              <span className="text-lg text-[var(--color-text-muted)]">No submission</span>
-            )}
-          </div>
-        );
-      })}
     </div>
   );
 }

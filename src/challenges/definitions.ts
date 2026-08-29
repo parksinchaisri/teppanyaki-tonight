@@ -14,6 +14,10 @@ export interface ChallengeDef {
   description: string;
   reflectionQuestion: string;
   makeDefault: (paramDefaults?: ParamDefaults) => SimConfig;
+  // What the student can actually change in this round. Projected on Theater
+  // Mode's briefing screen so the instructor has something concrete to point at
+  // while explaining, before the timer starts.
+  levers: string[];
 }
 
 export const CHALLENGES: ChallengeDef[] = [
@@ -27,6 +31,7 @@ export const CHALLENGES: ChallengeDef[] = [
     reflectionQuestion:
       'How does batching change the relationship between bar wait time and the dining room? Where do the throughput gains actually come from?',
     makeDefault: (pd) => defaultConfig({ batching: { early: 'eight', peak: 'eight', late: 'eight' } }, pd),
+    levers: ['Two seating policies: hold for a full table of 8, or seat parties as they arrive', 'Both are run together — the decision is which one to submit'],
   },
   {
     key: 'barSize',
@@ -38,6 +43,7 @@ export const CHALLENGES: ChallengeDef[] = [
     reflectionQuestion:
       'What role does the bar play in the operation beyond serving drinks? What is the actual cost of making it larger?',
     makeDefault: (pd) => defaultConfig({ batching: { early: 'eight', peak: 'eight', late: 'eight' }, barSeats: 39, tables: 16 }, pd),
+    levers: ['Bar seats: 15–87 (continuous)', 'Dining tables: 10–19 (adjusts automatically — 8 bar seats cost 1 table)'],
   },
   {
     key: 'diningTime',
@@ -48,6 +54,7 @@ export const CHALLENGES: ChallengeDef[] = [
       'Shorter teppanyaki seatings turn tables faster — but the value of a faster turn depends on whether anyone is waiting. Tune the average dining time for each part of the evening and find out when speed actually pays.',
     reflectionQuestion: 'Does it pay to shorten dining time? Does your answer depend on which period you target?',
     makeDefault: (pd) => defaultConfig({ batching: { early: 'eight', peak: 'eight', late: 'eight' } }, pd),
+    levers: ['Average dining time per period: 45–75 min', 'Three periods: Open→7, Peak, Late'],
   },
   {
     key: 'advertising',
@@ -59,6 +66,7 @@ export const CHALLENGES: ChallengeDef[] = [
     reflectionQuestion:
       'How do your advertising choices affect the variability of outcomes — not just the average? What are the operational consequences of higher demand variability?',
     makeDefault: (pd) => defaultConfig({ batching: { early: 'eight', peak: 'eight', late: 'eight' } }, pd),
+    levers: ['Advertising budget: 0.0×–4.0×', 'Campaign: None, Awareness, Discount or Happy Hour', 'Opening time: 5 PM, 6 PM or 7 PM'],
   },
   {
     key: 'advancedBatching',
@@ -70,6 +78,7 @@ export const CHALLENGES: ChallengeDef[] = [
     reflectionQuestion:
       'Which batching policy is appropriate at which time of day? What does customising the policy by period actually buy you?',
     makeDefault: (pd) => defaultConfig({ batching: { early: 'none', peak: 'eight', late: 'four_to_eight' } }, pd),
+    levers: ['3 periods × 4 batching modes each', 'Modes: No Batch, 4–8, 8, or 4-Share'],
   },
   {
     key: 'finalChallenge',
@@ -81,6 +90,7 @@ export const CHALLENGES: ChallengeDef[] = [
     reflectionQuestion:
       'How does your best configuration balance demand variability and process variability? Which single decision had the largest impact on profit?',
     makeDefault: (pd) => defaultConfig({ batching: { early: 'none', peak: 'eight', late: 'four_to_eight' } }, pd),
+    levers: ['Everything at once: batching × bar size × dining time × advertising', 'Levers the instructor has switched off are hidden and use class defaults'],
   },
 ];
 

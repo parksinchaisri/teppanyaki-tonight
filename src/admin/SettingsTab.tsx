@@ -3,8 +3,6 @@ import { resetClassData, updateParams, updatePin, updateSettings } from '../fire
 import { firebaseConfigured } from '../firebase/config';
 import type { ClassSettings } from '../firebase/types';
 import type { ParamOverrides } from '../engine/types';
-import { CHALLENGES } from '../challenges/definitions';
-import { RadioGroup } from '../components/shared/RadioGroup';
 
 interface Props {
   classCode: string;
@@ -54,47 +52,11 @@ export function SettingsTab({ classCode, settings, params }: Props) {
         />
       </div>
 
-      <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
-        <RadioGroup
-          label="Leaderboard mode"
-          value={settings.leaderboardMode}
-          options={[
-            { value: 'challenge', label: 'By Challenge' },
-            { value: 'final', label: 'Final Challenge Only' },
-          ]}
-          onChange={(v) => patch({ leaderboardMode: v as ClassSettings['leaderboardMode'] })}
-          columns={2}
-        />
-      </div>
-
-      <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
-        <RadioGroup
-          label="Leaderboard metric"
-          value={settings.leaderboardMetric}
-          options={[
-            { value: 'avgProfit', label: 'Average Profit' },
-            { value: 'maxProfit', label: 'Best Single Run' },
-          ]}
-          onChange={(v) => patch({ leaderboardMetric: v as ClassSettings['leaderboardMetric'] })}
-          columns={2}
-        />
-      </div>
-
-      <label className="flex flex-col gap-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
-        <span className="text-sm text-[var(--color-text-secondary)]">Active leaderboard challenge (for Live Board)</span>
-        <select
-          value={settings.activeLeaderboardChallenge}
-          onChange={(e) => patch({ activeLeaderboardChallenge: e.target.value })}
-          className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface-raised)] px-3 py-2 text-sm outline-none"
-        >
-          {CHALLENGES.map((c) => (
-            <option key={c.key} value={c.key}>
-              {c.title}
-            </option>
-          ))}
-          <option value="all">All challenges</option>
-        </select>
-      </label>
+      <p className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-4 text-sm text-[var(--color-text-secondary)]">
+        Which challenge the Live Board shows, and whether it is revealed to students, now live in the{' '}
+        <span className="text-[var(--color-text-primary)]">Live Board</span> tab — alongside the board itself, so the
+        controls sit with what they control.
+      </p>
 
       <EconomicsSection classCode={classCode} params={params} />
       <ChangePinSection classCode={classCode} />

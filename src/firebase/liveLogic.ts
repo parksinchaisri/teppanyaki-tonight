@@ -6,6 +6,7 @@ import {
   type LeaderboardRow,
   type LivePhase,
   type LiveSessionState,
+  type RoundHistoryEntry,
   type StudentRow,
 } from './types';
 
@@ -29,7 +30,96 @@ export function normalizeLiveState(data: unknown): LiveSessionState {
         }
       : null,
     roundView: d.roundView === 'cumulative' ? 'cumulative' : 'round',
+    roundHistory: Array.isArray(d.roundHistory)
+      ? (d.roundHistory as RoundHistoryEntry[])
+          .filter((e) => e && typeof e.challengeKey === 'string')
+          .map((e) => ({
+            challengeKey: e.challengeKey,
+            top5: Array.isArray(e.top5) ? e.top5.filter((x) => typeof x === 'string') : [],
+          }))
+      : [],
   };
+}
+
+// ── D3: ranking movement, streaks and per-round deltas ──────────────────────
+
+// Rank map (1-indexed) for a list already in ranked order.
+function rankMap(standings: RoundStanding[]): Map<string, number> {
+  const m = new Map<string, number>();
+  let rank = 0;
+  for (const s of standings) {
+    if (!s.submitted) continue;
+    rank += 1;
+    m.set(s.studentId, rank);
+  }
+  return m;
+}
+
+// Where everyone stood *before* the current challenge. Derived from the results
+// that already exist rather than stored, so no extra schema is needed: the
+// previous cumulative standing is the same sum with the current challenge left
+// out, and the previous round standing is simply the preceding challenge.
+export function previousRanks(
+  rows: LeaderboardRow[],
+  order: string[],
+  currentChallenge: string | null,
+  view: 'round' | 'cumulative',
+  roster: StudentRow[] = [],
+): Map<string, number> {
+  if (!currentChallenge) return new Map();
+  const i = order.indexOf(currentChallenge);
+  if (i <= 0) return new Map(); // nothing precedes the first challenge
+  if (view === 'cumulative') {
+    return rankMap(cumulativeStandings(rows, order.slice(0, i), roster));
+  }
+  return rankMap(roundStandings(rows, roster, order[i - 1]));
+}
+
+export interface RankedRow extends RoundStanding {
+  rank: number;
+  delta: number | null; // positions gained since the previous round; null if new
+  streak: number; // consecutive most-recent rounds finishing in the top 5
+  roundDelta: number | null; // profit added by the current round (cumulative view)
+  share: number; // 0–1, this row's value against the leader, for the bar
+}
+
+export function rankRows(
+  standings: RoundStanding[],
+  previous: Map<string, number>,
+  roundHistory: RoundHistoryEntry[],
+  roundContribution?: Map<string, number>,
+): RankedRow[] {
+  const top = standings.find((s) => s.submitted)?.value ?? 0;
+  let rank = 0;
+  return standings.map((s) => {
+    if (s.submitted) rank += 1;
+    const prev = previous.get(s.studentId);
+    return {
+      ...s,
+      rank,
+      delta: s.submitted && prev !== undefined ? prev - rank : null,
+      streak: streakFor(roundHistory, s.studentId),
+      roundDelta: roundContribution?.get(s.studentId) ?? null,
+      share: top > 0 && s.submitted ? Math.max(0, s.value) / top : 0,
+    };
+  });
+}
+
+// Consecutive trailing rounds in which the student finished top 5.
+export function streakFor(roundHistory: RoundHistoryEntry[], studentId: string): number {
+  let n = 0;
+  for (let i = roundHistory.length - 1; i >= 0; i--) {
+    if (roundHistory[i].top5.includes(studentId)) n += 1;
+    else break;
+  }
+  return n;
+}
+
+// Whoever gained the most positions this round, for the callout banner.
+export function biggestClimber(rows: RankedRow[]): RankedRow | null {
+  const climbers = rows.filter((r) => (r.delta ?? 0) > 0);
+  if (!climbers.length) return null;
+  return climbers.reduce((a, b) => ((b.delta ?? 0) > (a.delta ?? 0) ? b : a));
 }
 
 // The next challenge in the playlist after `current`, or null when `current` is
