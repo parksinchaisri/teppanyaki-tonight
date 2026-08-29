@@ -28,7 +28,8 @@ function ago(ts: number | null, now: number): string {
   return `${Math.floor(hrs / 24)}d ago`;
 }
 
-export function RosterTab({ classCode, settings }: { classCode: string; settings: ClassSettings }) {
+// Embedded as a section of the Live Control tab.
+export function RosterPanel({ classCode, settings }: { classCode: string; settings: ClassSettings }) {
   const [students, setStudents] = useState<StudentRow[]>([]);
   const [attempts, setAttempts] = useState<AttemptRow[]>([]);
   const [results, setResults] = useState<LeaderboardRow[]>([]);
@@ -58,10 +59,12 @@ export function RosterTab({ classCode, settings }: { classCode: string; settings
   const stuck = rows.filter((r) => r.needsNudge).length;
 
   return (
-    <div className="mx-auto max-w-5xl space-y-4">
+    <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold">Roster</h1>
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-[var(--color-text-secondary)]">
+            Roster &amp; activity
+          </h2>
           <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
             {students.length} joined
             {currentChallenge && (

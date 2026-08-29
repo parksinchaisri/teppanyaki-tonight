@@ -3,6 +3,7 @@ import { subscribeLeaderboard } from '../firebase/leaderboard';
 import { getAttempts } from '../firebase/attempts';
 import type { LeaderboardRow } from '../firebase/types';
 import { CHALLENGES, challengeLabel } from '../challenges/definitions';
+import { ReflectionsTab } from './ReflectionsTab';
 import { money } from '../lib/format';
 import { downloadCSV } from '../lib/csv';
 import { attemptsCSV, resultsCSV } from '../lib/exports';
@@ -12,6 +13,9 @@ export function ResultsTab({ classCode }: { classCode: string }) {
   const [filter, setFilter] = useState('all');
   const [exportingAttempts, setExportingAttempts] = useState(false);
   const [attemptsError, setAttemptsError] = useState('');
+  // Reflections used to be their own tab; they are the same class's data, so
+  // they live here as a sub-view rather than a separate destination.
+  const [view, setView] = useState<'standings' | 'reflections'>('standings');
 
   useEffect(() => subscribeLeaderboard(classCode, null, setRows), [classCode]);
 
@@ -46,7 +50,25 @@ export function ResultsTab({ classCode }: { classCode: string }) {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold">All Results</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-bold">Results</h1>
+          <div className="flex gap-1 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-1">
+            {(['standings', 'reflections'] as const).map((v) => (
+              <button
+                key={v}
+                onClick={() => setView(v)}
+                className={`rounded-md px-3 py-1.5 text-sm font-medium capitalize ${
+                  view === v
+                    ? 'bg-[var(--color-surface-raised)] text-[var(--color-text-primary)]'
+                    : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
+                }`}
+              >
+                {v}
+              </button>
+            ))}
+          </div>
+        </div>
+        {view === 'standings' && (
         <div className="flex items-center gap-2">
           <select
             value={filter}
@@ -71,14 +93,18 @@ export function ResultsTab({ classCode }: { classCode: string }) {
             {exportingAttempts ? 'Preparing…' : 'Download Attempts Log (CSV)'}
           </button>
         </div>
+        )}
       </div>
 
-      {attemptsError && (
+      {view === 'reflections' && <ReflectionsTab classCode={classCode} />}
+
+      {view === 'standings' && attemptsError && (
         <div className="rounded-md border border-[var(--color-accent-red)]/40 bg-[var(--color-accent-red)]/10 p-3 text-sm text-[var(--color-accent-red)]">
           {attemptsError}
         </div>
       )}
 
+      {view === 'standings' && (
       <div className="overflow-hidden rounded-lg border border-[var(--color-border)]">
         <table className="w-full text-sm">
           <thead className="bg-[var(--color-surface-raised)] text-xs uppercase text-[var(--color-text-secondary)]">
@@ -116,6 +142,7 @@ export function ResultsTab({ classCode }: { classCode: string }) {
           </tbody>
         </table>
       </div>
+      )}
     </div>
   );
 }

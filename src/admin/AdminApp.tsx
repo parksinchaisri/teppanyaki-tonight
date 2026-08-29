@@ -1,25 +1,21 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
 import { createClass, subscribeSettings } from '../firebase/classSettings';
 import { firebaseConfigured } from '../firebase/config';
 import { DEFAULT_PARAMS, DEFAULT_SETTINGS, type ClassSettings } from '../firebase/types';
 import type { ParamOverrides } from '../engine/types';
 import { AdminLogin } from './AdminLogin';
-import { SettingsTab } from './SettingsTab';
-import { SessionControlTab } from './SessionControlTab';
-import { RosterTab } from './RosterTab';
-import { LiveBoardTab } from './LiveBoardTab';
+import { SetupTab } from './SetupTab';
+import { LiveControlTab } from './LiveControlTab';
 import { ResultsTab } from './ResultsTab';
-import { ReflectionsTab } from './ReflectionsTab';
 
-type AdminTab = 'settings' | 'session' | 'roster' | 'live' | 'results' | 'reflections';
+type AdminTab = 'setup' | 'control' | 'results';
 
 export function AdminApp() {
   const [classCode, setClassCode] = useState('');
   const [authed, setAuthed] = useState(false);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
-  const [tab, setTab] = useState<AdminTab>('live');
+  const [tab, setTab] = useState<AdminTab>('control');
   const [settings, setSettings] = useState<ClassSettings>(DEFAULT_SETTINGS);
   const [params, setParams] = useState<ParamOverrides>(DEFAULT_PARAMS);
 
@@ -161,26 +157,15 @@ export function AdminApp() {
               )}
             </div>
           )}
-          <div className="mt-5 border-t border-[var(--color-border)] pt-4 text-center">
-            <Link
-              to="/admin/manager"
-              className="text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-accent)]"
-            >
-              Manage all classes →
-            </Link>
-          </div>
         </div>
       </div>
     );
   }
 
   const TABS: { key: AdminTab; label: string }[] = [
-    { key: 'settings', label: 'Settings' },
-    { key: 'session', label: 'Session Control' },
-    { key: 'roster', label: 'Roster' },
-    { key: 'live', label: 'Live Board' },
+    { key: 'setup', label: 'Setup' },
+    { key: 'control', label: 'Live Control' },
     { key: 'results', label: 'Results' },
-    { key: 'reflections', label: 'Reflections' },
   ];
 
   return (
@@ -226,12 +211,9 @@ export function AdminApp() {
             </button>
           </div>
         )}
-        {tab === 'settings' && <SettingsTab classCode={classCode} settings={settings} params={params} />}
-        {tab === 'session' && <SessionControlTab classCode={classCode} settings={settings} params={params} />}
-        {tab === 'roster' && <RosterTab classCode={classCode} settings={settings} />}
-        {tab === 'live' && <LiveBoardTab classCode={classCode} settings={settings} />}
+        {tab === 'setup' && <SetupTab classCode={classCode} settings={settings} params={params} />}
+        {tab === 'control' && <LiveControlTab classCode={classCode} settings={settings} params={params} />}
         {tab === 'results' && <ResultsTab classCode={classCode} />}
-        {tab === 'reflections' && <ReflectionsTab classCode={classCode} />}
       </main>
     </div>
   );
