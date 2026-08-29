@@ -29,6 +29,7 @@ import { CHALLENGE_BY_KEY } from '../challenges/definitions';
 import { money } from '../lib/format';
 import { useCountdown } from '../components/shared/useCountdown';
 import { RankBoard } from './RankBoard';
+import { avatarInitial, avatarStyle } from '../lib/avatar';
 
 export function TheaterMode() {
   const [classCode, setClassCode] = useState('');
@@ -277,41 +278,111 @@ function LobbyView({
   // Auto-detected from wherever this is actually served, never hardcoded.
   const siteUrl = `${window.location.origin}${import.meta.env.BASE_URL}`;
   const shownUrl = joinDisplay === 'custom' ? customUrl.trim() : joinDisplay === 'full' ? siteUrl : '';
-  const sorted = [...students].sort((a, b) => a.joinedAt - b.joinedAt);
+  const sorted = useMemo(() => [...students].sort((a, b) => a.joinedAt - b.joinedAt), [students]);
+
+  // Re-keying the counter on every increment restarts its animation, so each
+  // arrival gets a visible beat rather than the number silently changing.
+  const [pulseKey, setPulseKey] = useState(0);
+  const lastCount = useRef(sorted.length);
+  useEffect(() => {
+    if (sorted.length > lastCount.current) setPulseKey((k) => k + 1);
+    lastCount.current = sorted.length;
+  }, [sorted.length]);
+
   return (
-    <div className="text-center">
-      <style>{`@keyframes theaterPop{from{opacity:0;transform:scale(.85)}to{opacity:1;transform:scale(1)}}`}</style>
+    // Sized to the viewport so the roster grid absorbs whatever space is left
+    // rather than pushing the flavor line off a projected screen. A fixed
+    // reserve broke as soon as the join URL was hidden or the roster grew.
+    <div className="flex h-[calc(100vh-9rem)] flex-col text-center">
+      <style>{`
+        @keyframes theaterPop{0%{opacity:0;transform:scale(.6) translateY(8px)}60%{opacity:1;transform:scale(1.08)}100%{opacity:1;transform:scale(1)}}
+        @keyframes counterPulse{0%{transform:scale(1)}35%{transform:scale(1.14)}100%{transform:scale(1)}}
+        @keyframes flavorIn{from{opacity:0;transform:translateY(6px)}to{opacity:.85;transform:none}}
+      `}</style>
+
       {shownUrl && (
-        <>
+        <div className="shrink-0">
           <p className="text-xl uppercase tracking-[0.3em] text-[var(--color-text-muted)]">Join at</p>
           <p className="mt-3 break-all font-mono text-4xl text-[var(--color-accent)] lg:text-5xl">{shownUrl}</p>
-        </>
+        </div>
       )}
       {/* The class code is shown in every mode — students need it to join even
           when the link reached them some other way. */}
-      <p className={`${shownUrl ? 'mt-8' : ''} text-xl uppercase tracking-[0.3em] text-[var(--color-text-muted)]`}>
+      <p className={`shrink-0 ${shownUrl ? 'mt-8' : ''} text-xl uppercase tracking-[0.3em] text-[var(--color-text-muted)]`}>
         Class code
       </p>
-      <p className="mt-2 font-mono text-7xl font-bold lg:text-8xl">{classCode}</p>
+      <p className="shrink-0 font-mono text-7xl font-bold lg:text-8xl">{classCode}</p>
 
-      <p className="mt-10 text-lg text-[var(--color-text-secondary)]">
-        {sorted.length} {sorted.length === 1 ? 'chef' : 'chefs'} in the kitchen
+      <p key={pulseKey} style={{ animation: 'counterPulse .5s ease-out' }} className="mt-8 shrink-0">
+        <span className="font-mono text-6xl font-bold text-[var(--color-accent-green)] lg:text-7xl">
+          {sorted.length}
+        </span>
+        <span className="ml-3 text-2xl text-[var(--color-text-secondary)] lg:text-3xl">
+          {sorted.length === 1 ? 'chef' : 'chefs'} in the kitchen
+        </span>
       </p>
-      <div className="mx-auto mt-4 flex max-w-5xl flex-wrap justify-center gap-3">
+
+      {/* Wraps and scrolls the same way the leaderboard does, so a full class
+          stays legible instead of overflowing the projected screen. */}
+      <div className="mx-auto mt-6 flex min-h-0 w-full max-w-5xl flex-1 flex-wrap content-start justify-center gap-3 overflow-y-auto px-1 pb-1">
         {sorted.map((s) => (
-          <span
-            key={s.id}
-            style={{ animation: 'theaterPop .35s ease-out' }}
-            className="rounded-full border border-[var(--color-accent)]/40 bg-[var(--color-accent)]/10 px-5 py-2 text-2xl"
-          >
-            {s.displayName}
-          </span>
+          <StudentChip key={s.id} name={s.displayName} />
         ))}
         {!sorted.length && (
-          <span className="text-xl text-[var(--color-text-muted)]">Waiting for students to join…</span>
+          <span className="self-center text-xl text-[var(--color-text-muted)]">Waiting for students to join…</span>
         )}
       </div>
+
+      <FlavorStrip />
     </div>
+  );
+}
+
+function StudentChip({ name }: { name: string }) {
+  const style = avatarStyle(name);
+  return (
+    <span
+      style={{ animation: 'theaterPop .45s cubic-bezier(.2,.9,.3,1.2)' }}
+      className="flex items-center gap-2.5 rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] py-1.5 pl-1.5 pr-4"
+    >
+      <span
+        aria-hidden
+        style={{ background: style.background, borderColor: style.border, color: style.color }}
+        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border font-mono text-lg font-bold"
+      >
+        {avatarInitial(name)}
+      </span>
+      <span className="text-xl">{name}</span>
+    </span>
+  );
+}
+
+// Purely cosmetic filler while students trickle in — no data behind it.
+const FLAVOR_LINES = [
+  'One chef. Eight seats. Zero mercy.',
+  'The bar is where patience goes to die.',
+  'An empty chair is a chef cooking for nobody.',
+  'Tonight the grill does not wait for stragglers.',
+  'Every table of four costs you half a chef.',
+  'Peak hour is coming. It always comes.',
+  'Drinks are profit. Waiting is not.',
+  'Somewhere, a party of six is deciding to leave.',
+];
+
+function FlavorStrip() {
+  const [i, setI] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setI((n) => (n + 1) % FLAVOR_LINES.length), 4500);
+    return () => clearInterval(id);
+  }, []);
+  return (
+    <p
+      key={i}
+      style={{ animation: 'flavorIn .6s ease-out forwards' }}
+      className="mt-6 shrink-0 text-xl italic tracking-wide text-[var(--color-text-muted)] lg:text-2xl"
+    >
+      {FLAVOR_LINES[i]}
+    </p>
   );
 }
 
