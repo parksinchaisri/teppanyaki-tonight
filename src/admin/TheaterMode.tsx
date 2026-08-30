@@ -324,27 +324,38 @@ function LobbyView({
     // Sized to the viewport so the roster grid absorbs whatever space is left
     // rather than pushing the flavor line off a projected screen. A fixed
     // reserve broke as soon as the join URL was hidden or the roster grew.
-    <div className="flex h-[calc(100vh-9rem)] flex-col text-center">
+    <div className="relative flex h-[calc(100vh-9rem)] flex-col text-center">
       <style>{`
         @keyframes theaterPop{0%{opacity:0;transform:scale(.6) translateY(8px)}60%{opacity:1;transform:scale(1.08)}100%{opacity:1;transform:scale(1)}}
         @keyframes counterPulse{0%{transform:scale(1)}35%{transform:scale(1.14)}100%{transform:scale(1)}}
         @keyframes flavorIn{from{opacity:0;transform:translateY(6px)}to{opacity:.85;transform:none}}
       `}</style>
 
+      {/* This is the projected title screen before class starts. */}
+      <h1 className="relative z-10 shrink-0 text-4xl font-bold tracking-[0.18em] lg:text-5xl">
+        TEPPANYAKI TONIGHT
+      </h1>
+
       {shownUrl && (
-        <div className="shrink-0">
+        <div className="relative z-10 mt-4 shrink-0">
           <p className="text-xl uppercase tracking-[0.3em] text-[var(--color-text-muted)]">Join at</p>
           <p className="mt-3 break-all font-mono text-4xl text-[var(--color-accent)] lg:text-5xl">{shownUrl}</p>
         </div>
       )}
       {/* The class code is shown in every mode — students need it to join even
           when the link reached them some other way. */}
-      <p className={`shrink-0 ${shownUrl ? 'mt-8' : ''} text-xl uppercase tracking-[0.3em] text-[var(--color-text-muted)]`}>
+      <p
+        className={`relative z-10 shrink-0 ${shownUrl ? 'mt-5' : 'mt-4'} text-xl uppercase tracking-[0.3em] text-[var(--color-text-muted)]`}
+      >
         Class code
       </p>
-      <p className="shrink-0 font-mono text-7xl font-bold lg:text-8xl">{classCode}</p>
+      <p className="relative z-10 shrink-0 font-mono text-7xl font-bold lg:text-8xl">{classCode}</p>
 
-      <p key={pulseKey} style={{ animation: 'counterPulse .5s ease-out' }} className="mt-8 shrink-0">
+      <p
+        key={pulseKey}
+        style={{ animation: 'counterPulse .5s ease-out' }}
+        className="relative z-10 mt-5 shrink-0"
+      >
         <span className="font-mono text-6xl font-bold text-[var(--color-accent-green)] lg:text-7xl">
           {sorted.length}
         </span>
@@ -355,7 +366,7 @@ function LobbyView({
 
       {/* Wraps and scrolls the same way the leaderboard does, so a full class
           stays legible instead of overflowing the projected screen. */}
-      <div className="mx-auto mt-6 flex min-h-0 w-full max-w-5xl flex-1 flex-wrap content-start justify-center gap-3 overflow-y-auto px-1 pb-1">
+      <div className="relative z-10 mx-auto mt-4 flex min-h-0 w-full max-w-5xl flex-1 flex-wrap content-start justify-center gap-3 overflow-y-auto px-1 pb-1">
         {sorted.map((s) => (
           <StudentChip key={s.id} name={s.displayName} />
         ))}
@@ -364,7 +375,73 @@ function LobbyView({
         )}
       </div>
 
-      <FlavorStrip />
+      <div className="relative z-10 shrink-0">
+        <FlavorStrip />
+      </div>
+      <GrillScene />
+    </div>
+  );
+}
+
+// A quiet teppanyaki grill with steam rising off the plate — pure SVG timing,
+// no animation library. Deliberately low-contrast: this is atmosphere behind the
+// screen, and the class code stays the loudest thing on it.
+function GrillScene() {
+  const wisps = [
+    { x: 118, begin: '0s', dur: '5.4s' },
+    { x: 150, begin: '1.8s', dur: '6.2s' },
+    { x: 182, begin: '3.4s', dur: '5.8s' },
+  ];
+  return (
+    // Its own row at the foot rather than layered behind the roster, where it
+    // was completely obscured by the name chips.
+    <div aria-hidden className="pointer-events-none mt-2 flex shrink-0 justify-center opacity-60">
+      <svg viewBox="0 0 300 150" className="h-16 w-auto">
+        {wisps.map((w) => (
+          <path
+            key={w.x}
+            d={`M ${w.x} 96 c -8 -13 8 -20 0 -33 c -8 -13 8 -19 0 -30`}
+            fill="none"
+            stroke="var(--color-accent)"
+            strokeWidth="3"
+            strokeLinecap="round"
+            opacity="0"
+          >
+            <animate
+              attributeName="opacity"
+              values="0; 0.85; 0"
+              dur={w.dur}
+              begin={w.begin}
+              repeatCount="indefinite"
+            />
+            <animateTransform
+              attributeName="transform"
+              type="translate"
+              values="0 12; 0 -24"
+              dur={w.dur}
+              begin={w.begin}
+              repeatCount="indefinite"
+            />
+          </path>
+        ))}
+
+        {/* grill plate, drawn over the wisps so steam reads as rising from behind it */}
+        <rect
+          x="52"
+          y="98"
+          width="196"
+          height="14"
+          rx="7"
+          fill="var(--color-surface-raised)"
+          stroke="var(--color-border)"
+          strokeWidth="2"
+        />
+        <rect x="66" y="101.5" width="168" height="3" rx="1.5" fill="var(--color-accent-amber)">
+          <animate attributeName="opacity" values="0.35; 0.7; 0.35" dur="4.2s" repeatCount="indefinite" />
+        </rect>
+        <line x1="78" y1="112" x2="78" y2="130" stroke="var(--color-border)" strokeWidth="3" strokeLinecap="round" />
+        <line x1="222" y1="112" x2="222" y2="130" stroke="var(--color-border)" strokeWidth="3" strokeLinecap="round" />
+      </svg>
     </div>
   );
 }
@@ -410,7 +487,7 @@ function FlavorStrip() {
     <p
       key={i}
       style={{ animation: 'flavorIn .6s ease-out forwards' }}
-      className="mt-6 shrink-0 text-xl italic tracking-wide text-[var(--color-text-muted)] lg:text-2xl"
+      className="mt-4 shrink-0 text-xl italic tracking-wide text-[var(--color-text-muted)] lg:text-2xl"
     >
       {FLAVOR_LINES[i]}
     </p>
