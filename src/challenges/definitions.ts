@@ -14,6 +14,8 @@ export interface ChallengeDef {
   description: string;
   reflectionQuestion: string;
   makeDefault: (paramDefaults?: ParamDefaults) => SimConfig;
+  // Posed on Theater's briefing screen while students wait for the timer.
+  predictionQuestion: string;
 }
 
 export const CHALLENGES: ChallengeDef[] = [
@@ -27,6 +29,7 @@ export const CHALLENGES: ChallengeDef[] = [
     reflectionQuestion:
       'How does batching change the relationship between bar wait time and the dining room? Where do the throughput gains actually come from?',
     makeDefault: (pd) => defaultConfig({ batching: { early: 'eight', peak: 'eight', late: 'eight' } }, pd),
+    predictionQuestion: 'If demand is already high, can the restaurant still waste capacity?',
   },
   {
     key: 'barSize',
@@ -38,6 +41,7 @@ export const CHALLENGES: ChallengeDef[] = [
     reflectionQuestion:
       'What role does the bar play in the operation beyond serving drinks? What is the actual cost of making it larger?',
     makeDefault: (pd) => defaultConfig({ batching: { early: 'eight', peak: 'eight', late: 'eight' }, barSeats: 39, tables: 16 }, pd),
+    predictionQuestion: 'If the bar helps, why not make it enormous?',
   },
   {
     key: 'diningTime',
@@ -48,6 +52,7 @@ export const CHALLENGES: ChallengeDef[] = [
       'Shorter teppanyaki seatings turn tables faster — but the value of a faster turn depends on whether anyone is waiting. Tune the average dining time for each part of the evening and find out when speed actually pays.',
     reflectionQuestion: 'Does it pay to shorten dining time? Does your answer depend on which period you target?',
     makeDefault: (pd) => defaultConfig({ batching: { early: 'eight', peak: 'eight', late: 'eight' } }, pd),
+    predictionQuestion: 'Is faster always better?',
   },
   {
     key: 'advertising',
@@ -59,6 +64,7 @@ export const CHALLENGES: ChallengeDef[] = [
     reflectionQuestion:
       'How do your advertising choices affect the variability of outcomes — not just the average? What are the operational consequences of higher demand variability?',
     makeDefault: (pd) => defaultConfig({ batching: { early: 'eight', peak: 'eight', late: 'eight' } }, pd),
+    predictionQuestion: 'If 8:00pm is already overloaded, what kind of demand is actually valuable?',
   },
   {
     key: 'advancedBatching',
@@ -70,6 +76,7 @@ export const CHALLENGES: ChallengeDef[] = [
     reflectionQuestion:
       'Which batching policy is appropriate at which time of day? What does customising the policy by period actually buy you?',
     makeDefault: (pd) => defaultConfig({ batching: { early: 'none', peak: 'eight', late: 'four_to_eight' } }, pd),
+    predictionQuestion: 'What should make the rule change?',
   },
   {
     key: 'finalChallenge',
@@ -81,6 +88,7 @@ export const CHALLENGES: ChallengeDef[] = [
     reflectionQuestion:
       'How does your best configuration balance demand variability and process variability? Which single decision had the largest impact on profit?',
     makeDefault: (pd) => defaultConfig({ batching: { early: 'none', peak: 'eight', late: 'four_to_eight' } }, pd),
+    predictionQuestion: 'What are you actually optimizing?',
   },
 ];
 

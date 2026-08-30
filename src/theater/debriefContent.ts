@@ -1,67 +1,125 @@
-// Static debrief content, one object per challenge — local like the challenge
-// descriptions, not fetched. Genericized deliberately: "the restaurant", never a
-// brand or an owner's name, since this is projected in front of the class.
+// Static debrief content, one entry per challenge, each holding an ordered list
+// of screens. Local like the challenge descriptions, not fetched.
 //
-// Advertising has no entry on purpose. A challenge without content simply shows
-// no Debrief tab.
+// Genericized deliberately: "the restaurant", never a brand or an owner's name,
+// since this is projected in front of the class.
 
 export type DebriefVisualKey =
-  | 'batching'
-  | 'barSize'
-  | 'diningTime'
-  | 'advancedBatching'
-  | 'finalChallenge';
+  | 'batchingFragmentation'
+  | 'barBufferCurve'
+  | 'variabilityTypes'
+  | 'diningTimeClock'
+  | 'advertisingDemand'
+  | 'dynamicTimeline'
+  | 'optimizingWhat'
+  | 'systemNodes'
+  | 'synthesisBands';
+
+export interface DebriefScreen {
+  title: string; // the "big idea" headline
+  visual: DebriefVisualKey;
+  landingLine: string; // one short takeaway
+  askTheClass: string; // open discussion question, no answer shown
+}
 
 export interface DebriefContent {
   challengeKey: string;
-  title: string; // the "big idea" headline
-  visual: DebriefVisualKey; // which bespoke visual to render
-  landingLine: string; // one short takeaway
-  askTheClass: string; // open discussion question, no answer shown
+  screens: DebriefScreen[]; // 1–3
 }
 
 export const DEBRIEFS: DebriefContent[] = [
   {
     challengeKey: 'batching',
-    title: 'A Half-Full Table Still Uses a Full Chef Cycle',
-    visual: 'batching',
-    landingLine: 'The scarce resource is the chef cycle — not just the empty chair.',
-    askTheClass: 'When is the capacity gained from batching worth the wait it creates?',
+    screens: [
+      {
+        title: 'Variability Can Waste Capacity Even When Demand Is High',
+        visual: 'batchingFragmentation',
+        landingLine:
+          'The problem is not insufficient demand. It is demand arriving in the wrong-sized chunks.',
+        askTheClass: 'Demand was high in both cases. So why did one system fail to use its tables?',
+      },
+    ],
   },
   {
     challengeKey: 'barSize',
-    title: 'The Bar Is Part of the Process',
-    visual: 'barSize',
-    landingLine: 'A buffer can protect a constrained resource — but the buffer itself is not free.',
-    askTheClass:
-      'Who increased the buffer and improved batching, but eventually gave up too much dining capacity to do it?',
+    screens: [
+      {
+        title: 'A Buffer Is Valuable Only If the Process Knows How to Use It',
+        visual: 'barBufferCurve',
+        landingLine: 'The bar and the batching policy are complements.',
+        askTheClass: 'What makes a bar seat productive? And why can a large bar be bad?',
+      },
+    ],
   },
   {
     challengeKey: 'diningTime',
-    title: 'Faster Service Creates Capacity. But Is Capacity Always Valuable?',
-    visual: 'diningTime',
-    landingLine: 'Capacity is valuable only when demand wants to use it.',
-    askTheClass: 'Did faster service help equally throughout the evening, or only some of it?',
+    screens: [
+      {
+        title: 'This Time, We Are Changing the Process',
+        visual: 'variabilityTypes',
+        landingLine: 'Different kinds of variability need different levers.',
+        askTheClass: 'How do you shorten a meal without ever telling a customer to hurry?',
+      },
+      {
+        title: 'Faster Creates Capacity. Capacity Creates Value Only When Demand Can Use It.',
+        visual: 'diningTimeClock',
+        landingLine: 'An idle table at 9pm is not a capacity problem.',
+        askTheClass: 'Did faster service help equally throughout the evening, or only during part of it?',
+      },
+    ],
+  },
+  {
+    challengeKey: 'advertising',
+    screens: [
+      {
+        title: 'More Demand Is Not the Same as Better Demand',
+        visual: 'advertisingDemand',
+        landingLine: 'An empty table-hour at 5:30 cannot be stored and used at 8:00.',
+        askTheClass: 'What good is another 8pm customer if the dining room is already full?',
+      },
+    ],
   },
   {
     challengeKey: 'advancedBatching',
-    title: 'The Best Rule Changes With the System',
-    visual: 'advancedBatching',
-    landingLine: 'Same restaurant. Different state. Different policy.',
-    askTheClass:
-      'What single number would you want to check before deciding whether to change the seating rule right now?',
+    screens: [
+      {
+        title: 'The Best Rule Changes With the System',
+        visual: 'dynamicTimeline',
+        landingLine: 'Same restaurant. Different state. Different policy.',
+        askTheClass: "'Be flexible' is not an operating policy. What measurable trigger would you actually use?",
+      },
+    ],
   },
   {
     challengeKey: 'finalChallenge',
-    title: 'There Is No Best Lever. There Is a Best System.',
-    visual: 'finalChallenge',
-    landingLine: 'The value of each decision depends on all the others.',
-    askTheClass:
-      'Pick two strategies with similar results but different choices. Which single change would have broken one of them if applied to the other?',
+    screens: [
+      {
+        title: 'What Are You Actually Optimizing?',
+        visual: 'optimizingWhat',
+        landingLine: 'High utilization is not the same as high profit.',
+        askTheClass: 'Would your best strategy change if I paid you for throughput instead of profit?',
+      },
+      {
+        title: 'There Is No Best Lever. There Is a Best System.',
+        visual: 'systemNodes',
+        landingLine: 'The value of each decision depends on all the others.',
+        askTheClass:
+          'Pick two strategies with similar results but different choices. Which single change would have broken one of them if applied to the other?',
+      },
+      {
+        title: 'What Were We Really Managing?',
+        visual: 'synthesisBands',
+        landingLine: 'Demand variability + process variability + operating policy → performance',
+        askTheClass: 'Which single lever would you protect if you could only keep one?',
+      },
+    ],
   },
 ];
 
 export function debriefFor(challengeKey: string | null): DebriefContent | null {
   if (!challengeKey) return null;
-  return DEBRIEFS.find((d) => d.challengeKey === challengeKey) ?? null;
+  const found = DEBRIEFS.find((d) => d.challengeKey === challengeKey);
+  // A challenge with no screens is treated as having no content, so the Debrief
+  // tab stays hidden rather than rendering an empty view.
+  return found && found.screens.length > 0 ? found : null;
 }

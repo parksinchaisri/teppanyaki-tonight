@@ -438,6 +438,16 @@ function BriefingView({
       {/* D4: the challenge's real config panel, inert — something concrete to
           point at while Simulate is still held. */}
       <BriefingControlsPreview challengeKey={challengeKey} settings={settings} params={params} />
+
+      {/* Something to pose to the room while the timer has not started. */}
+      {CHALLENGE_BY_KEY[challengeKey]?.predictionQuestion && (
+        <div className="mx-auto mt-8 max-w-3xl rounded-2xl border border-[var(--color-accent)]/40 bg-[var(--color-accent)]/10 px-8 py-6">
+          <p className="text-sm uppercase tracking-[0.3em] text-[var(--color-accent)]">Predict</p>
+          <p className="mt-2 text-2xl leading-relaxed lg:text-3xl">
+            {CHALLENGE_BY_KEY[challengeKey].predictionQuestion}
+          </p>
+        </div>
+      )}
     </div>
   );
 }
@@ -578,26 +588,67 @@ function RoundResultsView({
 }
 
 // One idea, one visual, one line — no profit numbers, since Round and Cumulative
-// have already shown those.
+// have already shown those. A challenge may carry several screens; position
+// resets whenever the instructor enters the tab for a different challenge.
 function DebriefView({ content }: { content: DebriefContent }) {
+  const [index, setIndex] = useState(0);
+  useEffect(() => setIndex(0), [content.challengeKey]);
+
+  const screens = content.screens;
+  const i = Math.min(index, screens.length - 1);
+  const screen = screens[i];
+  const multi = screens.length > 1;
+
   return (
     <div className="overflow-y-auto text-center" style={{ maxHeight: 'calc(100vh - 14rem)' }}>
-      <h2 className="text-4xl font-bold leading-tight lg:text-5xl">{content.title}</h2>
+      <h2 className="text-4xl font-bold leading-tight lg:text-5xl">{screen.title}</h2>
 
-      <div className="my-12 flex justify-center">
-        <DebriefVisual which={content.visual} />
+      <div className="my-10 flex justify-center">
+        <DebriefVisual which={screen.visual} />
       </div>
 
       <p className="mx-auto max-w-3xl rounded-2xl border-l-4 border-[var(--color-accent-green)] bg-[var(--color-accent-green)]/10 px-8 py-6 text-2xl font-medium italic leading-relaxed lg:text-3xl">
-        “{content.landingLine}”
+        “{screen.landingLine}”
       </p>
 
       <div className="mx-auto mt-6 max-w-3xl rounded-2xl border border-[var(--color-accent)]/40 bg-[var(--color-accent)]/10 px-8 py-5">
         <p className="text-sm uppercase tracking-[0.3em] text-[var(--color-accent)]">Ask the class</p>
         <p className="mt-2 text-xl leading-relaxed text-[var(--color-text-secondary)] lg:text-2xl">
-          {content.askTheClass}
+          {screen.askTheClass}
         </p>
       </div>
+
+      {/* Single-screen challenges show no navigation chrome at all. */}
+      {multi && (
+        <div className="mt-8 flex items-center justify-center gap-6">
+          <button
+            onClick={() => setIndex((n) => Math.max(0, n - 1))}
+            disabled={i === 0}
+            aria-label="Previous debrief screen"
+            className="rounded-md border border-[var(--color-border)] px-5 py-2 text-2xl text-[var(--color-text-secondary)] disabled:opacity-30"
+          >
+            ←
+          </button>
+          <span className="flex items-center gap-2">
+            {screens.map((_, n) => (
+              <span
+                key={n}
+                className={`h-3 w-3 rounded-full ${
+                  n === i ? 'bg-[var(--color-accent)]' : 'border border-[var(--color-text-muted)]'
+                }`}
+              />
+            ))}
+          </span>
+          <button
+            onClick={() => setIndex((n) => Math.min(screens.length - 1, n + 1))}
+            disabled={i === screens.length - 1}
+            aria-label="Next debrief screen"
+            className="rounded-md border border-[var(--color-border)] px-5 py-2 text-2xl text-[var(--color-text-secondary)] disabled:opacity-30"
+          >
+            →
+          </button>
+        </div>
+      )}
     </div>
   );
 }
