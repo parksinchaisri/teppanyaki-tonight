@@ -29,7 +29,8 @@ export function normalizeLiveState(data: unknown): LiveSessionState {
           endsAt: num((t as { endsAt?: unknown }).endsAt),
         }
       : null,
-    roundView: d.roundView === 'cumulative' ? 'cumulative' : 'round',
+    roundView:
+      d.roundView === 'cumulative' ? 'cumulative' : d.roundView === 'debrief' ? 'debrief' : 'round',
     roundHistory: Array.isArray(d.roundHistory)
       ? (d.roundHistory as RoundHistoryEntry[])
           .filter((e) => e && typeof e.challengeKey === 'string')

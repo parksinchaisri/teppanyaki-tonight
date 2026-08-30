@@ -315,6 +315,23 @@ export function SetupTab({ classCode, settings, params }: Props) {
         </div>
       </section>
 
+      {/* ── Debrief ────────────────────────────────────────────────────────── */}
+      <label className="flex cursor-pointer items-center justify-between gap-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
+        <span>
+          <span className="font-medium">Full debrief mode</span>
+          <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
+            Adds a Debrief view to Theater's round results — the big idea, one visual and a discussion question.
+            Challenges without debrief content keep the plain Round/Cumulative toggle.
+          </p>
+        </span>
+        <input
+          type="checkbox"
+          checked={settings.fullDebriefMode !== false}
+          onChange={(e) => patch({ fullDebriefMode: e.target.checked })}
+          className="h-5 w-5 shrink-0 accent-[var(--color-accent)]"
+        />
+      </label>
+
       {/* ── Prepare tab presentation ───────────────────────────────────────── */}
       <label className="flex cursor-pointer items-center justify-between gap-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
         <span>

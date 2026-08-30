@@ -24,6 +24,7 @@ import {
   type ClassSettings,
   type LeaderboardRow,
   type LiveSessionState,
+  type RoundView,
   type StudentRow,
 } from '../firebase/types';
 import { CHALLENGE_BY_KEY } from '../challenges/definitions';
@@ -34,6 +35,8 @@ import { RankBoard } from './RankBoard';
 import { BriefingControlsPreview } from './BriefingControlsPreview';
 import { computeRanked } from './RankBoard';
 import { RankReveal } from './RankReveal';
+import { debriefFor, type DebriefContent } from '../theater/debriefContent';
+import { DebriefVisual } from '../theater/DebriefVisuals';
 import { avatarInitial, avatarStyle } from '../lib/avatar';
 
 export function TheaterMode() {
@@ -275,6 +278,7 @@ function TheaterSession({ classCode }: { classCode: string }) {
             students={students}
             order={order}
             challengeKey={live.currentChallenge}
+            debrief={settings.fullDebriefMode !== false ? debriefFor(live.currentChallenge) : null}
             revealCount={theaterRevealCount(settings)}
             revealPending={!revealDone.has(live.currentChallenge)}
             onRevealDone={() =>
@@ -494,6 +498,7 @@ function RoundResultsView({
   students,
   order,
   challengeKey,
+  debrief,
   revealCount,
   revealPending,
   onRevealDone,
@@ -504,26 +509,41 @@ function RoundResultsView({
   students: StudentRow[];
   order: string[];
   challengeKey: string;
+  debrief: DebriefContent | null;
   revealCount: number;
   revealPending: boolean;
   onRevealDone: () => void;
 }) {
-  const view = live.roundView;
-  // Only "This Round" gets the reveal; Cumulative stays a plain toggle.
+  // A challenge with no debrief content simply has no Debrief tab — the toggle
+  // falls back to the original two options rather than showing an empty state.
+  const views: RoundView[] = debrief ? ['round', 'cumulative', 'debrief'] : ['round', 'cumulative'];
+  // Guard against the stored view pointing at a tab this challenge lacks.
+  const view: RoundView = views.includes(live.roundView) ? live.roundView : 'round';
+  // Only "This Round" gets the reveal; Cumulative and Debrief are plain views.
   const showReveal = view === 'round' && revealPending;
   const ranked = useMemo(
     () => computeRanked({ rows, students, order, challengeKey, view: 'round', roundHistory: live.roundHistory }),
     [rows, students, order, challengeKey, live.roundHistory],
   );
 
+  const LABELS: Record<RoundView, string> = {
+    round: 'This Round',
+    cumulative: 'Cumulative',
+    debrief: 'Debrief',
+  };
+
   return (
     <div className="mx-auto w-full max-w-4xl">
       <div className="mb-6 flex items-center justify-between gap-4">
         <h1 className="text-3xl font-bold">
-          {view === 'cumulative' ? 'Cumulative Standings' : CHALLENGE_BY_KEY[challengeKey]?.title ?? challengeKey}
+          {view === 'cumulative'
+            ? 'Cumulative Standings'
+            : view === 'debrief'
+              ? 'Debrief'
+              : CHALLENGE_BY_KEY[challengeKey]?.title ?? challengeKey}
         </h1>
         <div className="flex gap-1 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-1">
-          {(['round', 'cumulative'] as const).map((v) => (
+          {views.map((v) => (
             <button
               key={v}
               onClick={() => void setRoundView(classCode, v)}
@@ -533,13 +553,15 @@ function RoundResultsView({
                   : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
               }`}
             >
-              {v === 'round' ? 'This Round' : 'Cumulative'}
+              {LABELS[v]}
             </button>
           ))}
         </div>
       </div>
 
-      {showReveal ? (
+      {view === 'debrief' && debrief ? (
+        <DebriefView content={debrief} />
+      ) : showReveal ? (
         <RankReveal ranked={ranked} count={revealCount} onDone={onRevealDone} />
       ) : (
         <RankBoard
@@ -547,10 +569,35 @@ function RoundResultsView({
           students={students}
           order={order}
           challengeKey={challengeKey}
-          view={view}
+          view={view === 'cumulative' ? 'cumulative' : 'round'}
           roundHistory={live.roundHistory}
         />
       )}
+    </div>
+  );
+}
+
+// One idea, one visual, one line — no profit numbers, since Round and Cumulative
+// have already shown those.
+function DebriefView({ content }: { content: DebriefContent }) {
+  return (
+    <div className="overflow-y-auto text-center" style={{ maxHeight: 'calc(100vh - 14rem)' }}>
+      <h2 className="text-4xl font-bold leading-tight lg:text-5xl">{content.title}</h2>
+
+      <div className="my-12 flex justify-center">
+        <DebriefVisual which={content.visual} />
+      </div>
+
+      <p className="mx-auto max-w-3xl rounded-2xl border-l-4 border-[var(--color-accent-green)] bg-[var(--color-accent-green)]/10 px-8 py-6 text-2xl font-medium italic leading-relaxed lg:text-3xl">
+        “{content.landingLine}”
+      </p>
+
+      <div className="mx-auto mt-6 max-w-3xl rounded-2xl border border-[var(--color-accent)]/40 bg-[var(--color-accent)]/10 px-8 py-5">
+        <p className="text-sm uppercase tracking-[0.3em] text-[var(--color-accent)]">Ask the class</p>
+        <p className="mt-2 text-xl leading-relaxed text-[var(--color-text-secondary)] lg:text-2xl">
+          {content.askTheClass}
+        </p>
+      </div>
     </div>
   );
 }

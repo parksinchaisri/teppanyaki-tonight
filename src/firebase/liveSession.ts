@@ -6,6 +6,7 @@ import {
   type AttemptRow,
   type ClassSettings,
   type LiveSessionState,
+  type RoundView,
   type StudentRow,
 } from './types';
 import { bestAttemptsByStudent, nextChallengeKey, normalizeLiveState } from './liveLogic';
@@ -102,7 +103,7 @@ export async function startTimer(classCode: string, durationSeconds: number): Pr
   });
 }
 
-export async function setRoundView(classCode: string, roundView: 'round' | 'cumulative'): Promise<void> {
+export async function setRoundView(classCode: string, roundView: RoundView): Promise<void> {
   await writeLive(classCode, { roundView });
 }
 

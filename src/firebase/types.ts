@@ -72,6 +72,11 @@ export interface ClassSettings {
 
   // How many places the Theater round-results reveal counts down through.
   theaterRevealCount: 5 | 10;
+
+  // Adds a third "Debrief" view to Theater's round results, for challenges that
+  // have debrief content. Off leaves the Round/Cumulative toggle exactly as it
+  // was.
+  fullDebriefMode: boolean;
 }
 
 export type TheaterJoinUrlDisplay = 'full' | 'custom' | 'hidden';
@@ -99,6 +104,7 @@ export const DEFAULT_SETTINGS: ClassSettings = {
   theaterCustomJoinUrl: '',
   preparePageMode: 'standard',
   theaterRevealCount: 5,
+  fullDebriefMode: true,
 };
 
 // ── Per-challenge settings accessors ────────────────────────────────────────
@@ -228,11 +234,13 @@ export interface RoundHistoryEntry {
   top5: string[]; // studentIds, best first — drives the top-5 streak badge
 }
 
+export type RoundView = 'round' | 'cumulative' | 'debrief';
+
 export interface LiveSessionState {
   phase: LivePhase;
   currentChallenge: string | null; // challenge key; null in lobby/wrap_up
   timer: LiveTimer | null;
-  roundView: 'round' | 'cumulative';
+  roundView: RoundView;
   roundHistory: RoundHistoryEntry[];
 }
 

@@ -1,24 +1,7 @@
 import { PARAMS } from '../../engine/params';
 import { money } from '../../lib/format';
 import { useApp } from '../../store/appContext';
-
-function FlowNode({ title, subtitle, tone }: { title: string; subtitle: string; tone: string }) {
-  return (
-    <div
-      className="flex min-w-[130px] flex-col items-center rounded-lg border bg-[var(--color-surface-raised)] px-4 py-3 text-center"
-      style={{ borderColor: tone }}
-    >
-      <span className="font-semibold" style={{ color: tone }}>
-        {title}
-      </span>
-      <span className="text-xs text-[var(--color-text-secondary)]">{subtitle}</span>
-    </div>
-  );
-}
-
-function Arrow() {
-  return <span className="text-2xl text-[var(--color-text-muted)]">→</span>;
-}
+import { Arrow, FlowNode } from '../shared/FlowNode';
 
 // The guarded briefing copy, used verbatim.
 const GUARDED_COPY = [
