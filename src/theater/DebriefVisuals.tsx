@@ -369,13 +369,14 @@ function Node({ label, line }: { label: string; line: string }) {
 
 // Final screen 3 — what each challenge was actually about.
 function SynthesisBands() {
+  // Same six bands and labels; the phrases now narrate Little's Law.
   const bands = [
-    { label: 'Batching', line: 'party-size variability → usable capacity' },
-    { label: 'Bar', line: 'stochastic arrivals → buffer and smoothing' },
-    { label: 'Dining time', line: 'process variability → effective capacity' },
-    { label: 'Advertising', line: 'demand timing → shape the load' },
-    { label: 'Dynamic batching', line: 'system state → operating policy' },
-    { label: 'Final', line: 'interactions + objective → system optimization' },
+    { label: 'Batching', line: 'protect productive I from party-size variability' },
+    { label: 'Bar', line: 'buffer arrivals so productive I stays full' },
+    { label: 'Dining time', line: 'reduce T when faster flow is valuable' },
+    { label: 'Advertising', line: 'shape demand so capacity is useful at the right time' },
+    { label: 'Dynamic batching', line: 'change the policy as the system state changes' },
+    { label: 'Final', line: 'maximizing flow is not the same as maximizing profit' },
   ];
   return (
     <div className="mx-auto w-full max-w-4xl space-y-2">

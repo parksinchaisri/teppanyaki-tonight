@@ -37,6 +37,7 @@ import { computeRanked } from './RankBoard';
 import { RankReveal } from './RankReveal';
 import { debriefFor, type DebriefContent } from '../theater/debriefContent';
 import { DebriefVisual } from '../theater/DebriefVisuals';
+import { LittleLawStrip } from '../theater/LittleLawStrip';
 import { avatarInitial, avatarStyle } from '../lib/avatar';
 
 export function TheaterMode() {
@@ -605,6 +606,11 @@ function DebriefView({ content }: { content: DebriefContent }) {
 
       <div className="my-10 flex justify-center">
         <DebriefVisual which={screen.visual} />
+      </div>
+
+      {/* Connective tissue between screens, sitting under the visual. */}
+      <div className="mb-8">
+        <LittleLawStrip {...screen.littleLaw} />
       </div>
 
       <p className="mx-auto max-w-3xl rounded-2xl border-l-4 border-[var(--color-accent-green)] bg-[var(--color-accent-green)]/10 px-8 py-6 text-2xl font-medium italic leading-relaxed lg:text-3xl">
