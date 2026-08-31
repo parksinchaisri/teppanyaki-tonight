@@ -14,10 +14,12 @@ export function PeriodBatchingControl({
   label,
   value,
   onChange,
+  columns = 1,
 }: {
   label: string;
   value: BatchingMode;
   onChange: (m: BatchingMode) => void;
+  columns?: number;
 }) {
-  return <RadioGroup label={label} value={value} options={BATCHING_OPTIONS} onChange={onChange} />;
+  return <RadioGroup label={label} value={value} options={BATCHING_OPTIONS} onChange={onChange} columns={columns} />;
 }
