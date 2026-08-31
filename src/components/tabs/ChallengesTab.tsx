@@ -28,8 +28,16 @@ const COMPONENTS: Record<string, (props: ChallengeContentProps) => React.ReactEl
 type LockState = 'open' | 'instructor' | 'sequence' | 'reflection';
 
 export function ChallengesTab() {
-  const { settings, completed, reflected, params, challengeStates, setChallengeStates, forcedChallenge } =
-    useApp();
+  const {
+    settings,
+    completed,
+    reflected,
+    params,
+    challengeStates,
+    setChallengeStates,
+    forcedChallenge,
+    reportView,
+  } = useApp();
 
   // The playlist the instructor has configured, in its configured order. A
   // challenge absent from it is not rendered at all.
@@ -50,6 +58,12 @@ export function ChallengesTab() {
     if (forcedChallenge && keys.includes(forcedChallenge.key)) setActive(forcedChallenge.key);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [forcedChallenge]);
+
+  // This tab is mounted only while the student is actually on it, so reporting
+  // from here needs no extra guard against the other top-level tabs.
+  useEffect(() => {
+    reportView(`Challenges:${active}`);
+  }, [active, reportView]);
 
   // Per-challenge state lives in appContext so it survives switching the top-level
   // tabs (Prepare/Challenges/Leaderboard) as well as the challenge sub-tabs.

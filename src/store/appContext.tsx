@@ -13,6 +13,8 @@ import { subscribeSettings } from '../firebase/classSettings';
 import { subscribeAttemptCounts } from '../firebase/attempts';
 import { subscribeLiveState } from '../firebase/liveSession';
 import { subscribeStudentReflections } from '../firebase/reflections';
+import { subscribeOwnStudent } from '../firebase/students';
+import { usePresence } from '../hooks/usePresence';
 import {
   DEFAULT_LIVE_STATE,
   DEFAULT_PARAMS,
@@ -105,6 +107,12 @@ interface AppContextValue {
   // re-emitted on reconnect or re-render, so it nudges rather than locks: a
   // student is free to navigate away again straight after.
   forcedChallenge: { key: string; seq: number } | null;
+  // True once this student's own roster document is known to be gone — the
+  // instructor removed them. Never set from a failed or pending read.
+  removedFromClass: boolean;
+  // Where this student is right now, reported to the roster. Components call
+  // this on navigation; the presence hook handles the writing.
+  reportView: (view: string) => void;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -162,6 +170,37 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
     return subscribeAttemptCounts(session.classCode, session.studentId, setServerAttempts);
   }, [session?.classCode, session?.studentId]);
+
+  // ── Roster presence and the student's own roster row ─────────────────────
+  const [removedFromClass, setRemovedFromClass] = useState(false);
+  const [currentView, setCurrentView] = useState('');
+  usePresence(session?.classCode ?? null, session?.studentId ?? null, currentView);
+
+  useEffect(() => {
+    if (!session?.classCode || !session.studentId) {
+      setRemovedFromClass(false);
+      return;
+    }
+    return subscribeOwnStudent(session.classCode, session.studentId, (own) => {
+      if (own.status === 'missing') {
+        setRemovedFromClass(true);
+        return;
+      }
+      if (own.status !== 'present') return;
+      setRemovedFromClass(false);
+      // The roster document is authoritative for the name: an instructor
+      // correcting it here must reach the next attempt this student logs,
+      // without a rejoin or even a refresh.
+      if (own.displayName && own.displayName !== session.displayName) {
+        setSessionState((prev) => {
+          if (!prev) return prev;
+          const next = { ...prev, displayName: own.displayName };
+          saveSession(next);
+          return next;
+        });
+      }
+    });
+  }, [session?.classCode, session?.studentId, session?.displayName]);
 
   // Section 5: follow the instructor to the new challenge.
   const [forcedChallenge, setForcedChallenge] = useState<{ key: string; seq: number } | null>(null);
@@ -248,6 +287,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       bumpAttempt,
       liveState,
       forcedChallenge,
+      removedFromClass,
+      reportView: setCurrentView,
     }),
     [
       session,
@@ -260,6 +301,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       attemptCounts,
       liveState,
       forcedChallenge,
+      removedFromClass,
     ],
   );
 

@@ -137,6 +137,8 @@ export function subscribeStudents(classCode: string, cb: (rows: StudentRow[]) =>
             id: d.id,
             displayName: String(data.displayName ?? 'Anonymous'),
             joinedAt: typeof data.joinedAt === 'number' ? data.joinedAt : 0,
+            currentView: String(data.currentView ?? ''),
+            lastSeenAt: typeof data.lastSeenAt === 'number' ? data.lastSeenAt : 0,
           };
         }),
       ),

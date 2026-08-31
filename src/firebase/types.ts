@@ -260,4 +260,9 @@ export interface StudentRow {
   id: string;
   displayName: string;
   joinedAt: number;
+  // Presence, written by the student's own client. Where they are right now
+  // ('Prepare', 'Challenges:barSize', 'Leaderboard') and when they were last
+  // seen with the tab visible and focused. 0 means never reported.
+  currentView: string;
+  lastSeenAt: number;
 }

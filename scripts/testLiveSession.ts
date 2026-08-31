@@ -15,6 +15,8 @@ import {
   previousRanks,
   rankRows,
   reflectionGateBlocker,
+  presenceStatus,
+  formatCurrentView,
   streakFor,
   roundStandings,
   sortRoster,
@@ -56,7 +58,7 @@ function row(studentId: string, challengeKey: string, profit: number, over: Part
   };
 }
 function student(id: string): StudentRow {
-  return { id, displayName: id.toUpperCase(), joinedAt: 1 };
+  return { id, displayName: id.toUpperCase(), joinedAt: 1, currentView: '', lastSeenAt: 0 };
 }
 function attempt(studentId: string, challengeKey: string, avgProfit: number, n: number): AttemptRow {
   return {
@@ -141,9 +143,9 @@ check('gates in live mode too', reflectionGateBlocker(settings({ reflectionGates
 section('8. Iteration 9 B1 — roster activity');
 const NOW = 10_000_000;
 const rosterStudents: StudentRow[] = [
-  { id: 'ana', displayName: 'Ana', joinedAt: NOW - 10 * 60 * 1000 },   // long ago, active
-  { id: 'bo', displayName: 'Bo', joinedAt: NOW - 10 * 60 * 1000 },     // long ago, nothing
-  { id: 'cy', displayName: 'Cy', joinedAt: NOW - 30 * 1000 },          // just joined, nothing
+  { id: 'ana', displayName: 'Ana', joinedAt: NOW - 10 * 60 * 1000, currentView: '', lastSeenAt: 0 },   // long ago, active
+  { id: 'bo', displayName: 'Bo', joinedAt: NOW - 10 * 60 * 1000, currentView: '', lastSeenAt: 0 },     // long ago, nothing
+  { id: 'cy', displayName: 'Cy', joinedAt: NOW - 30 * 1000, currentView: '', lastSeenAt: 0 },          // just joined, nothing
 ];
 const rosterAttempts = [attempt('ana', 'batching', 1200, 1), attempt('ana', 'barSize', 900, 1)];
 rosterAttempts[0].timestamp = NOW - 60 * 1000;
@@ -192,6 +194,20 @@ check('no climber when nobody moves up', biggestClimber(rankRows(nowCum, new Map
 check('streak counts trailing rounds', streakFor(history, 'cy') === 2, `cy streak ${streakFor(history, 'cy')}`);
 check('streak breaks on a missed round', streakFor([{ challengeKey: 'a', top5: ['ana'] }, { challengeKey: 'b', top5: ['bo'] }], 'ana') === 0, 'ana missed the latest round');
 check('no history → no streak', streakFor([], 'ana') === 0, 'fresh session');
+
+section('9b. Roster presence');
+const T = 1_000_000;
+check('fresh heartbeat is active', presenceStatus(T - 10_000, T) === 'active', '10s ago');
+check('30s is still active', presenceStatus(T - 30_000, T) === 'active', 'boundary inclusive');
+check('a minute is idle', presenceStatus(T - 60_000, T) === 'idle', '60s ago');
+check('two minutes is still idle', presenceStatus(T - 120_000, T) === 'idle', 'boundary inclusive');
+check('past two minutes is away', presenceStatus(T - 120_001, T) === 'away', 'decayed');
+check('never seen is away', presenceStatus(0, T) === 'away', 'no heartbeat recorded');
+const label = (k: string) => ({ barSize: 'Bar Size' })[k];
+check('challenge view is expanded', formatCurrentView('Challenges:barSize', label) === 'Challenges: Bar Size', 'label resolved');
+check('unknown challenge falls back to its key', formatCurrentView('Challenges:mystery', label) === 'Challenges: mystery', 'key passed through');
+check('plain view passes through', formatCurrentView('Prepare', label) === 'Prepare', 'no colon');
+check('empty view reads as a dash', formatCurrentView('', label) === '—', 'never reported');
 
 section('10. Countdown formatting');
 check('minutes and seconds', formatCountdown(125_000) === '02:05', formatCountdown(125_000));

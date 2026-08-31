@@ -19,6 +19,11 @@ export {
   formatCountdown,
   biggestClimber,
   buildRoster,
+  formatCurrentView,
+  presenceStatus,
+  type PresenceStatus,
+  PRESENCE_ACTIVE_MS,
+  PRESENCE_IDLE_MS,
   isAwaitingTimer,
   previousRanks,
   rankRows,
@@ -153,6 +158,8 @@ export async function getRoster(classCode: string): Promise<StudentRow[]> {
       id: d.id,
       displayName: String(data.displayName ?? 'Anonymous'),
       joinedAt: typeof data.joinedAt === 'number' ? data.joinedAt : 0,
+      currentView: String(data.currentView ?? ''),
+      lastSeenAt: typeof data.lastSeenAt === 'number' ? data.lastSeenAt : 0,
     };
   });
 }

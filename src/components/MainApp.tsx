@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useApp } from '../store/appContext';
 import { LobbyWaiting } from './onboarding/LobbyWaiting';
+import { RemovedFromClass } from './onboarding/RemovedFromClass';
 import { PrepareTab } from './tabs/PrepareTab';
 import { ChallengesTab } from './tabs/ChallengesTab';
 import { LeaderboardTab } from './tabs/LeaderboardTab';
@@ -14,8 +15,14 @@ const TABS: { key: Tab; label: string }[] = [
 ];
 
 export function MainApp() {
-  const { session, setSession, settings, liveState, forcedChallenge } = useApp();
+  const { session, setSession, settings, liveState, forcedChallenge, removedFromClass, reportView } = useApp();
   const [tab, setTab] = useState<Tab>('prepare');
+
+  // Report the top-level tab. ChallengesTab overrides this with the challenge
+  // it is showing, since "Challenges" alone tells the instructor very little.
+  useEffect(() => {
+    if (tab !== 'challenges') reportView(tab === 'prepare' ? 'Prepare' : 'Leaderboard');
+  }, [tab, reportView]);
 
   // The instructor has moved the class to a new challenge: bring everyone to
   // the Challenges tab. `forcedChallenge` is a fresh object only on an actual
@@ -23,6 +30,10 @@ export function MainApp() {
   useEffect(() => {
     if (forcedChallenge) setTab('challenges');
   }, [forcedChallenge]);
+
+  // Outranks every other screen, including the lobby: there is nothing this
+  // student can usefully do in a class they are no longer on.
+  if (removedFromClass) return <RemovedFromClass />;
 
   // In a live class nothing is available until the instructor starts. Self-paced
   // classes never see this — liveSessionMode gates it.

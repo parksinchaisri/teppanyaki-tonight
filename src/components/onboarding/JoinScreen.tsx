@@ -34,6 +34,10 @@ export function JoinScreen() {
         await setDoc(doc(db, 'classes', code, 'students', studentId), {
           displayName: displayName.trim(),
           joinedAt: Date.now(),
+          // Seed presence at join so a student who has just arrived reads as
+          // Active rather than waiting out the first heartbeat as Away.
+          currentView: 'Prepare',
+          lastSeenAt: Date.now(),
         }).catch(() => {});
       }
       setSession({ classCode: code, studentId, displayName: displayName.trim() });

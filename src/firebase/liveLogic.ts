@@ -279,6 +279,33 @@ export function bestAttemptsByStudent(attempts: AttemptRow[], challengeKey: stri
   return best;
 }
 
+// ── Presence ────────────────────────────────────────────────────────────────
+
+export type PresenceStatus = 'active' | 'idle' | 'away';
+
+export const PRESENCE_ACTIVE_MS = 30 * 1000;
+export const PRESENCE_IDLE_MS = 2 * 60 * 1000;
+
+// Derived from the heartbeat alone. A backgrounded tab stops beating, so a
+// student who alt-tabbed away decays to Idle and then Away on their own.
+export function presenceStatus(lastSeenAt: number, now: number): PresenceStatus {
+  if (!lastSeenAt) return 'away';
+  const age = now - lastSeenAt;
+  if (age <= PRESENCE_ACTIVE_MS) return 'active';
+  if (age <= PRESENCE_IDLE_MS) return 'idle';
+  return 'away';
+}
+
+// 'Challenges:barSize' → 'Challenges: Bar Size'. Anything unrecognised is
+// passed through, so an older client reporting a view this build has never
+// heard of still reads sensibly.
+export function formatCurrentView(view: string, labelFor: (key: string) => string | undefined): string {
+  if (!view) return '—';
+  const [head, key] = view.split(':');
+  if (head === 'Challenges' && key) return `Challenges: ${labelFor(key) ?? key}`;
+  return head;
+}
+
 // ── B1: roster / activity ───────────────────────────────────────────────────
 
 export interface RosterEntry {
