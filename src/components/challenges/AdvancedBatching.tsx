@@ -2,12 +2,13 @@ import { CHALLENGE_BY_KEY } from '../../challenges/definitions';
 import { ChallengeShell, type ChallengeContentProps, type ControlProps } from './ChallengeShell';
 import { PeriodBatchingControl } from './controls';
 
-export function AdvancedBatching({ state, onChange }: ChallengeContentProps) {
+export function AdvancedBatching({ state, onChange, demoMode }: ChallengeContentProps) {
   return (
     <ChallengeShell
       def={CHALLENGE_BY_KEY.advancedBatching}
       state={state}
       onChange={onChange}
+      demoMode={demoMode}
       renderControls={(config, patch) => <AdvancedBatchingControls config={config} patch={patch} />}
     />
   );

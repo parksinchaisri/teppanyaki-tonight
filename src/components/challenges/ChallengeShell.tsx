@@ -53,6 +53,9 @@ export interface ControlProps {
 export interface ChallengeContentProps {
   state: ChallengeUIState;
   onChange: ChallengeOnChange;
+  // Theater's live demo: the real component, really simulating, but writing
+  // nothing anywhere. See the demoMode note on ChallengeShell.
+  demoMode?: boolean;
 }
 
 interface Props extends ChallengeContentProps {
@@ -63,9 +66,27 @@ interface Props extends ChallengeContentProps {
   // Final Challenge uses it to substitute class defaults for levers the
   // instructor has switched off.
   sanitizeConfig?: (c: SimConfig) => SimConfig;
+  // Theater's "Demo This Challenge": this exact component, fully interactive,
+  // driving the real engine — but inert as far as anything persistent is
+  // concerned. Every write in this file is behind `!demoMode`: the three
+  // Firestore calls (logAttempt, submitResult, submitReflection), the shared
+  // attempt counter, and the two localStorage flags. Attempt limits and the
+  // live-session gates are lifted too, so the instructor can run it as often as
+  // the demonstration needs. The instructor's browser may well be carrying a
+  // real student session in localStorage, so `session == null` is not something
+  // this can lean on.
+  demoMode?: boolean;
 }
 
-export function ChallengeShell({ def, renderControls, state, onChange, wide, sanitizeConfig }: Props) {
+export function ChallengeShell({
+  def,
+  renderControls,
+  state,
+  onChange,
+  wide,
+  sanitizeConfig,
+  demoMode = false,
+}: Props) {
   const { session, settings, params, markCompleted, markReflected, attemptCounts, bumpAttempt, liveState } =
     useApp();
   const [showCompare, setShowCompare] = useState(false);
@@ -75,18 +96,19 @@ export function ChallengeShell({ def, renderControls, state, onChange, wide, san
 
   const attemptsUsed = attemptCounts[def.key] ?? 0;
   const maxAttempts = maxAttemptsFor(settings, def.key);
-  const limitReached = attemptsUsed >= maxAttempts;
+  const limitReached = !demoMode && attemptsUsed >= maxAttempts;
   const askConfidence = confidenceRatingEnabledFor(settings, def.key);
 
   // The instructor has closed this round — simulating is over, but everything
   // already run stays viewable.
-  const roundClosed = isRoundClosed(settings, liveState, def.key);
+  const roundClosed = !demoMode && isRoundClosed(settings, liveState, def.key);
   // The round is unlocked for reading but has not started — hold Simulate until
   // the instructor starts the timer.
-  const awaitingTimer = isAwaitingTimer(settings, liveState, def.key);
+  const awaitingTimer = !demoMode && isAwaitingTimer(settings, liveState, def.key);
   const simulateBlocked = limitReached || roundClosed || awaitingTimer;
   // The shared class clock, shown only while this challenge's round is running.
   const timerActive =
+    !demoMode &&
     settings.liveSessionMode &&
     liveState.phase === 'timed_round' &&
     liveState.currentChallenge === def.key &&
@@ -115,6 +137,10 @@ export function ChallengeShell({ def, renderControls, state, onChange, wide, san
     const saved: SavedRun = { id, label: `Config ${runs.length + 1}`, config: structuredClone(effective), result };
     onChange((s) => ({ ...s, runs: [...s.runs, saved], selectedId: id, selectedRun: representativeRun(result) }));
 
+    // Demo runs are not anybody's attempts: they neither consume the shared
+    // counter nor reach the audit trail.
+    if (demoMode) return;
+
     const attemptNumber = bumpAttempt(def.key);
     if (session) {
       void logAttempt({
@@ -141,7 +167,12 @@ export function ChallengeShell({ def, renderControls, state, onChange, wide, san
   }
 
   async function handleSubmit() {
-    if (!best || !session) return;
+    if (!best) return;
+    if (demoMode) {
+      setStatus({ kind: 'ok', msg: 'Demo — nothing was submitted or saved.' });
+      return;
+    }
+    if (!session) return;
     setStatus({ kind: 'idle', msg: 'Submitting…' });
     try {
       await submitResult({
@@ -166,7 +197,12 @@ export function ChallengeShell({ def, renderControls, state, onChange, wide, san
   }
 
   async function handleReflection() {
-    if (!session || state.reflection.trim().length < 10) return;
+    if (state.reflection.trim().length < 10) return;
+    if (demoMode) {
+      onChange((s) => ({ ...s, reflectSubmitted: true }));
+      return;
+    }
+    if (!session) return;
     await submitReflection({
       classCode: session.classCode,
       studentId: session.studentId,
@@ -199,6 +235,10 @@ export function ChallengeShell({ def, renderControls, state, onChange, wide, san
       ) : limitReached ? (
         <p className="text-center text-xs text-[var(--color-accent-amber)]">
           Attempt limit reached ({attemptsUsed}/{maxAttempts}) for this challenge.
+        </p>
+      ) : demoMode ? (
+        <p className="text-center text-xs text-[var(--color-text-muted)]">
+          Demo — run it as many times as you like.
         </p>
       ) : (
         maxAttempts < 10 && (
@@ -304,6 +344,7 @@ export function ChallengeShell({ def, renderControls, state, onChange, wide, san
   const header = (
     <div className="flex items-start justify-between gap-4">
       <div>
+        {demoMode && <DemoBanner />}
         <h2 className="text-2xl font-bold">{def.title}</h2>
         <p className="mt-2 max-w-3xl text-sm text-[var(--color-text-secondary)]">{def.description}</p>
       </div>
@@ -388,6 +429,16 @@ export function ChallengeShell({ def, renderControls, state, onChange, wide, san
 
       {showCompare && <ComparePanel runs={runs} onClose={() => setShowCompare(false)} />}
     </div>
+  );
+}
+
+// Stays on screen for the whole demo, so a screenshot of this panel can never
+// be mistaken for a real submission.
+function DemoBanner() {
+  return (
+    <p className="mb-3 inline-block rounded-md border border-[var(--color-accent-amber)] bg-[var(--color-accent-amber)]/15 px-3 py-1.5 text-sm font-semibold uppercase tracking-wide text-[var(--color-accent-amber)]">
+      🎬 Demo — not scored, nothing is saved
+    </p>
   );
 }
 

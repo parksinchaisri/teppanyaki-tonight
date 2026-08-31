@@ -28,7 +28,8 @@ const COMPONENTS: Record<string, (props: ChallengeContentProps) => React.ReactEl
 type LockState = 'open' | 'instructor' | 'sequence' | 'reflection';
 
 export function ChallengesTab() {
-  const { settings, completed, reflected, params, challengeStates, setChallengeStates } = useApp();
+  const { settings, completed, reflected, params, challengeStates, setChallengeStates, forcedChallenge } =
+    useApp();
 
   // The playlist the instructor has configured, in its configured order. A
   // challenge absent from it is not rendered at all.
@@ -41,6 +42,14 @@ export function ChallengesTab() {
   useEffect(() => {
     if (list.length && !keys.includes(active)) setActive(list[0].key);
   }, [keys, list, active]);
+
+  // Follow the room onto the challenge the instructor just opened. Keyed on the
+  // transition object rather than on `currentChallenge`, so a student who
+  // switches to another tab afterwards is left alone for the rest of the round.
+  useEffect(() => {
+    if (forcedChallenge && keys.includes(forcedChallenge.key)) setActive(forcedChallenge.key);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [forcedChallenge]);
 
   // Per-challenge state lives in appContext so it survives switching the top-level
   // tabs (Prepare/Challenges/Leaderboard) as well as the challenge sub-tabs.

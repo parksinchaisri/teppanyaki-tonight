@@ -202,6 +202,24 @@ section('11. Missing/partial live document falls back safely');
 const blank = normalizeLiveState(undefined);
 check('defaults to lobby', blank.phase === 'lobby' && blank.currentChallenge === null, `${blank.phase}`);
 check('rejects a bogus phase', normalizeLiveState({ phase: 'nonsense' }).phase === 'lobby', 'unknown phase ignored');
+check(
+  'accepts the intro phase',
+  normalizeLiveState({ phase: 'intro' }).phase === 'intro',
+  'intro survives normalisation',
+);
+// The intro names no challenge, so nothing about it may close a round or hold
+// a Simulate button — those gates key off currentChallenge, which is null here.
+const introState = live({ phase: 'intro', currentChallenge: null });
+check(
+  'intro closes no round',
+  PLAYLIST.every((k) => !isRoundClosed(settings(), introState, k)),
+  'no challenge reads as closed during the intro',
+);
+check(
+  'intro holds no timer gate',
+  PLAYLIST.every((k) => !isAwaitingTimer(settings(), introState, k)),
+  'no challenge is awaiting the timer during the intro',
+);
 check('keeps a valid timer', normalizeLiveState({ timer: { durationSeconds: 60, startedAt: 5, endsAt: 65 } }).timer?.endsAt === 65, 'timer preserved');
 check('missing roundHistory defaults to empty', normalizeLiveState({}).roundHistory.length === 0, 'no history');
 check('malformed history entries dropped', normalizeLiveState({ roundHistory: [{ challengeKey: 'a', top5: ['x'] }, { nope: 1 }] }).roundHistory.length === 1, 'only valid entries kept');

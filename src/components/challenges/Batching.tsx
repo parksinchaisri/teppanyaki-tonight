@@ -3,12 +3,13 @@ import type { BatchingMode } from '../../engine/types';
 import { RadioGroup } from '../shared/RadioGroup';
 import { ChallengeShell, type ChallengeContentProps, type ControlProps } from './ChallengeShell';
 
-export function Batching({ state, onChange }: ChallengeContentProps) {
+export function Batching({ state, onChange, demoMode }: ChallengeContentProps) {
   return (
     <ChallengeShell
       def={CHALLENGE_BY_KEY.batching}
       state={state}
       onChange={onChange}
+      demoMode={demoMode}
       renderControls={(config, patch) => <BatchingControls config={config} patch={patch} />}
     />
   );

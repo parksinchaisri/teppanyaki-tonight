@@ -221,7 +221,9 @@ export interface AttemptRow {
 // Stored at classes/{classCode}/live/state — kept out of `settings` because it
 // changes many times during a single class, while settings rarely change.
 
-export type LivePhase = 'lobby' | 'briefing' | 'timed_round' | 'round_results' | 'wrap_up';
+// 'intro' sits between the lobby and the first briefing: the class is running
+// but no challenge has been named yet, so currentChallenge is still null.
+export type LivePhase = 'lobby' | 'intro' | 'briefing' | 'timed_round' | 'round_results' | 'wrap_up';
 
 export interface LiveTimer {
   durationSeconds: number;

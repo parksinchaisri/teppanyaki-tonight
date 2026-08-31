@@ -18,12 +18,13 @@ const OPENINGS: { value: string; label: string }[] = [
   { value: '420', label: '7:00 PM' },
 ];
 
-export function Advertising({ state, onChange }: ChallengeContentProps) {
+export function Advertising({ state, onChange, demoMode }: ChallengeContentProps) {
   return (
     <ChallengeShell
       def={CHALLENGE_BY_KEY.advertising}
       state={state}
       onChange={onChange}
+      demoMode={demoMode}
       renderControls={(config, patch) => <AdvertisingControls config={config} patch={patch} />}
     />
   );

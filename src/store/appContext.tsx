@@ -3,6 +3,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type Dispatch,
   type ReactNode,
@@ -98,6 +99,12 @@ interface AppContextValue {
   // Instructor-driven session flow (iteration 8). Only meaningful when
   // settings.liveSessionMode is on; self-paced classes ignore it entirely.
   liveState: LiveSessionState;
+  // Set once each time the instructor moves the class to a different challenge,
+  // so the student's own UI follows the room. A fresh object per transition —
+  // consumers use it as an effect dependency and act exactly once. Never
+  // re-emitted on reconnect or re-render, so it nudges rather than locks: a
+  // student is free to navigate away again straight after.
+  forcedChallenge: { key: string; seq: number } | null;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -155,6 +162,29 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
     return subscribeAttemptCounts(session.classCode, session.studentId, setServerAttempts);
   }, [session?.classCode, session?.studentId]);
+
+  // Section 5: follow the instructor to the new challenge.
+  const [forcedChallenge, setForcedChallenge] = useState<{ key: string; seq: number } | null>(null);
+  // `undefined` means "nothing observed yet". The first value a client sees is
+  // its starting position, not a transition — a student joining or refreshing
+  // mid-round must not be yanked out of whatever they were reading.
+  const seenChallenge = useRef<string | null | undefined>(undefined);
+  const forceSeq = useRef(0);
+
+  useEffect(() => {
+    seenChallenge.current = undefined;
+    setForcedChallenge(null);
+  }, [session?.classCode, session?.studentId]);
+
+  useEffect(() => {
+    const next = liveState.currentChallenge;
+    const previous = seenChallenge.current;
+    seenChallenge.current = next;
+    if (!settings.liveSessionMode) return;
+    if (previous === undefined || previous === next || !next) return;
+    forceSeq.current += 1;
+    setForcedChallenge({ key: next, seq: forceSeq.current });
+  }, [liveState.currentChallenge, settings.liveSessionMode]);
 
   const reflected = useMemo(
     () => ({ ...localReflected, ...serverReflected }),
@@ -217,8 +247,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
       attemptCounts,
       bumpAttempt,
       liveState,
+      forcedChallenge,
     }),
-    [session, settings, params, completed, reflected, challengeStates, animationTime, attemptCounts, liveState],
+    [
+      session,
+      settings,
+      params,
+      completed,
+      reflected,
+      challengeStates,
+      animationTime,
+      attemptCounts,
+      liveState,
+      forcedChallenge,
+    ],
   );
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

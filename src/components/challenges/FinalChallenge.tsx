@@ -89,7 +89,7 @@ function InlineSlider({
   );
 }
 
-export function FinalChallenge({ state, onChange }: ChallengeContentProps) {
+export function FinalChallenge({ state, onChange, demoMode }: ChallengeContentProps) {
   const { settings, params } = useApp();
   const levers = finalChallengeLevers(settings);
   const classDefaults = defaultConfig(
@@ -129,6 +129,7 @@ export function FinalChallenge({ state, onChange }: ChallengeContentProps) {
       def={CHALLENGE_BY_KEY.finalChallenge}
       state={state}
       onChange={onChange}
+      demoMode={demoMode}
       wide
       sanitizeConfig={sanitizeConfig}
       renderControls={(config, patch) => (

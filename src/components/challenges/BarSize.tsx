@@ -6,12 +6,13 @@ import { RadioGroup } from '../shared/RadioGroup';
 import { Slider } from '../shared/Slider';
 import { ChallengeShell, type ChallengeContentProps, type ControlProps } from './ChallengeShell';
 
-export function BarSize({ state, onChange }: ChallengeContentProps) {
+export function BarSize({ state, onChange, demoMode }: ChallengeContentProps) {
   return (
     <ChallengeShell
       def={CHALLENGE_BY_KEY.barSize}
       state={state}
       onChange={onChange}
+      demoMode={demoMode}
       renderControls={(config, patch) => <BarSizeControls config={config} patch={patch} />}
     />
   );

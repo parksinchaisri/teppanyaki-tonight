@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { updateSettingsFields } from '../firebase/classSettings';
 import { subscribeLeaderboard } from '../firebase/leaderboard';
 import { subscribeStudents } from '../firebase/attempts';
-import { startClass, subscribeLiveState } from '../firebase/liveSession';
+import { beginFirstChallenge, startClass, subscribeLiveState } from '../firebase/liveSession';
 import { firebaseConfigured } from '../firebase/config';
 import {
   DEFAULT_LIVE_STATE,
@@ -28,6 +28,7 @@ interface Props {
 
 const PHASE_LABELS: Record<LiveSessionState['phase'], string> = {
   lobby: 'Lobby — not started',
+  intro: 'Intro',
   briefing: 'Briefing',
   timed_round: 'Round in progress',
   round_results: 'Round results',
@@ -107,10 +108,20 @@ export function LiveControlTab({ classCode, settings, params }: Props) {
         <div className="flex flex-wrap gap-2">
           {live.phase === 'lobby' && (
             <button
-              onClick={() => void startClass(classCode, settings)}
+              onClick={() => void startClass(classCode)}
               className="rounded-md bg-[var(--color-accent-green)] px-4 py-2 text-sm font-medium text-black"
             >
               ▶ Start Class
+            </button>
+          )}
+          {/* Mirrors Theater's Continue button so an instructor driving from
+              this tab is not stranded on the intro phase. */}
+          {live.phase === 'intro' && (
+            <button
+              onClick={() => void beginFirstChallenge(classCode, settings)}
+              className="rounded-md bg-[var(--color-accent-green)] px-4 py-2 text-sm font-medium text-black"
+            >
+              Continue to Challenge 1 →
             </button>
           )}
           <button

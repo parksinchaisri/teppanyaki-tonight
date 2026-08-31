@@ -4,6 +4,7 @@ import { subscribeSettings } from '../firebase/classSettings';
 import { subscribeLeaderboard } from '../firebase/leaderboard';
 import { subscribeStudents } from '../firebase/attempts';
 import {
+  beginFirstChallenge,
   endRound,
   nextChallenge,
   nextChallengeKey,
@@ -38,6 +39,18 @@ import { debriefFor, type DebriefContent } from '../theater/debriefContent';
 import { DebriefVisual } from '../theater/DebriefVisuals';
 import { LittleLawStrip } from '../theater/LittleLawStrip';
 import { avatarInitial, avatarStyle } from '../lib/avatar';
+import { IntroContent } from '../components/shared/IntroContent';
+import {
+  makeInitialChallengeState,
+  type ChallengeContentProps,
+  type ChallengeUIState,
+} from '../components/challenges/ChallengeShell';
+import { Batching } from '../components/challenges/Batching';
+import { BarSize } from '../components/challenges/BarSize';
+import { DiningTime } from '../components/challenges/DiningTime';
+import { Advertising } from '../components/challenges/Advertising';
+import { AdvancedBatching } from '../components/challenges/AdvancedBatching';
+import { FinalChallenge } from '../components/challenges/FinalChallenge';
 
 export function TheaterMode() {
   const [classCode, setClassCode] = useState('');
@@ -80,6 +93,8 @@ function TheaterSession({ classCode }: { classCode: string }) {
   const autoCloseFired = useRef<string | null>(null);
   // The reveal plays once per challenge, on first entry to round_results.
   const [revealDone, setRevealDone] = useState<Set<string>>(new Set());
+  // Non-null while the instructor is demonstrating the live challenge UI.
+  const [demoKey, setDemoKey] = useState<string | null>(null);
 
   useEffect(
     () =>
@@ -136,6 +151,13 @@ function TheaterSession({ classCode }: { classCode: string }) {
     if (live.phase === 'lobby') autoCloseFired.current = null;
   }, [live.phase]);
 
+  // The demo belongs to one challenge's briefing; starting the timer or moving
+  // on drops it rather than leaving a stale panel on the projector.
+  useEffect(() => {
+    if (live.phase !== 'briefing') setDemoKey(null);
+    else if (demoKey && demoKey !== live.currentChallenge) setDemoKey(null);
+  }, [live.phase, live.currentChallenge, demoKey]);
+
   async function run(fn: () => Promise<unknown>, failure: string) {
     setBusy(true);
     setNotice('');
@@ -154,9 +176,19 @@ function TheaterSession({ classCode }: { classCode: string }) {
         <BigButton
           tone="green"
           disabled={busy || !order.length}
-          onClick={() => run(() => startClass(classCode, settings), 'Could not start the class.')}
+          onClick={() => run(() => startClass(classCode), 'Could not start the class.')}
         >
           ▶ Start Class
+        </BigButton>
+      )}
+
+      {live.phase === 'intro' && (
+        <BigButton
+          tone="green"
+          disabled={busy || !order.length}
+          onClick={() => run(() => beginFirstChallenge(classCode, settings), 'Could not start the first challenge.')}
+        >
+          Continue to Challenge 1 →
         </BigButton>
       )}
 
@@ -253,14 +285,28 @@ function TheaterSession({ classCode }: { classCode: string }) {
             customUrl={settings.theaterCustomJoinUrl ?? ''}
           />
         )}
-        {live.phase === 'briefing' && live.currentChallenge && (
-          <BriefingView
-            title={def?.title}
-            description={def?.description}
-            challengeKey={live.currentChallenge}
+        {live.phase === 'intro' && (
+          <IntroView
             settings={settings}
-            params={params}
+            busy={busy || !order.length}
+            onContinue={() =>
+              run(() => beginFirstChallenge(classCode, settings), 'Could not start the first challenge.')
+            }
           />
+        )}
+        {live.phase === 'briefing' && live.currentChallenge && (
+          demoKey === live.currentChallenge ? (
+            <DemoView challengeKey={demoKey} params={params} onBack={() => setDemoKey(null)} />
+          ) : (
+            <BriefingView
+              title={def?.title}
+              description={def?.description}
+              challengeKey={live.currentChallenge}
+              settings={settings}
+              params={params}
+              onDemo={() => setDemoKey(live.currentChallenge)}
+            />
+          )
         )}
         {live.phase === 'timed_round' && (
           <TimedRoundView
@@ -269,7 +315,7 @@ function TheaterSession({ classCode }: { classCode: string }) {
             students={students}
             autoClosing={autoClosing}
             challengeTitle={def?.title}
-            challengeDescription={def?.description}
+            challengeGoal={def?.shortGoal}
           />
         )}
         {live.phase === 'round_results' && live.currentChallenge && (
@@ -511,18 +557,106 @@ function FlavorStrip() {
   );
 }
 
+const DEMO_COMPONENTS: Record<string, (props: ChallengeContentProps) => React.ReactElement> = {
+  batching: Batching,
+  barSize: BarSize,
+  diningTime: DiningTime,
+  advertising: Advertising,
+  advancedBatching: AdvancedBatching,
+  finalChallenge: FinalChallenge,
+};
+
+// The students' own challenge component, live and interactive, driven straight
+// from the real engine. It is the same import ChallengesTab uses — not a copy —
+// so what the room watches cannot drift from what they are about to do. The
+// `demoMode` flag it carries is what keeps every write out of Firestore; see the
+// note on ChallengeShell's props.
+function DemoView({
+  challengeKey,
+  params,
+  onBack,
+}: {
+  challengeKey: string;
+  params: ParamOverrides;
+  onBack: () => void;
+}) {
+  const def = CHALLENGE_BY_KEY[challengeKey];
+  // Scratch state, local to this component: it is dropped the moment the demo
+  // closes and is never merged into any student's saved runs.
+  const [state, setState] = useState<ChallengeUIState>(() =>
+    makeInitialChallengeState(def, {
+      defaultBarSeats: params.defaultBarSeats,
+      defaultTables: params.defaultTables,
+    }),
+  );
+  const Component = DEMO_COMPONENTS[challengeKey];
+  if (!Component || !def) return null;
+
+  return (
+    <div className="flex max-h-full w-full flex-col">
+      <div className="mb-3 flex shrink-0 items-center justify-between gap-4">
+        <button
+          onClick={onBack}
+          className="rounded-lg border border-[var(--color-border)] px-4 py-2 text-base text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
+        >
+          ← Back to Briefing
+        </button>
+        <span className="rounded-md border border-[var(--color-accent-amber)] bg-[var(--color-accent-amber)]/15 px-4 py-2 text-base font-semibold uppercase tracking-wide text-[var(--color-accent-amber)]">
+          🎬 Demo — not scored, nothing is saved
+        </span>
+      </div>
+      {/* The real challenge UI is a full page; give it its own scroll rather
+          than letting it push the projected layout around. */}
+      <div className="min-h-0 flex-1 overflow-y-auto rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] p-5 text-left">
+        <Component state={state} onChange={(updater) => setState((prev) => updater(prev))} demoMode />
+      </div>
+    </div>
+  );
+}
+
+// The ground rules, projected once at the top of the class. Same component the
+// students' own Prepare tab renders, so nobody is reading different rules.
+function IntroView({
+  settings,
+  busy,
+  onContinue,
+}: {
+  settings: ClassSettings;
+  busy: boolean;
+  onContinue: () => void;
+}) {
+  return (
+    <div className="mx-auto flex max-h-full w-full max-w-5xl flex-col">
+      <div className="min-h-0 overflow-y-auto">
+        <IntroContent settings={settings} projected />
+      </div>
+      <div className="mt-6 shrink-0 text-center">
+        <button
+          onClick={onContinue}
+          disabled={busy}
+          className="rounded-xl bg-[var(--color-accent-green)] px-10 py-4 text-2xl font-bold text-black disabled:opacity-40"
+        >
+          Continue to Challenge 1 →
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function BriefingView({
   title,
   description,
   challengeKey,
   settings,
   params,
+  onDemo,
 }: {
   title?: string;
   description?: string;
   challengeKey: string;
   settings: ClassSettings;
   params: ParamOverrides;
+  onDemo: () => void;
 }) {
   return (
     <div className="mx-auto max-w-5xl text-center">
@@ -533,6 +667,13 @@ function BriefingView({
       {/* D4: the challenge's real config panel, inert — something concrete to
           point at while Simulate is still held. */}
       <BriefingControlsPreview challengeKey={challengeKey} settings={settings} params={params} />
+
+      <button
+        onClick={onDemo}
+        className="mx-auto mt-3 block rounded-lg border border-[var(--color-accent)] bg-[var(--color-accent)]/10 px-5 py-2 text-base font-medium text-[var(--color-accent)]"
+      >
+        🎬 Demo This Challenge
+      </button>
 
       {/* Something to pose to the room while the timer has not started. */}
       {CHALLENGE_BY_KEY[challengeKey]?.predictionQuestion && (
@@ -553,14 +694,14 @@ function TimedRoundView({
   students,
   autoClosing,
   challengeTitle,
-  challengeDescription,
+  challengeGoal,
 }: {
   live: LiveSessionState;
   submitted: number;
   students: StudentRow[];
   autoClosing: boolean;
   challengeTitle?: string;
-  challengeDescription?: string;
+  challengeGoal?: string;
 }) {
   const { label, expired } = useCountdown(live.timer?.endsAt ?? null);
   const joined = Math.max(students.length, submitted);
@@ -592,13 +733,14 @@ function TimedRoundView({
       {expired && (
         <p className="mt-6 text-5xl font-bold tracking-widest text-[var(--color-accent-red)]">TIME&apos;S UP</p>
       )}
-      {/* The challenge's own copy, so it cannot drift from what students read. */}
+      {/* The round's goal in one line — `shortGoal`, not the long `description`,
+          which is written for reading at a desk rather than across a room. */}
       {challengeTitle && (
         <div className="mx-auto mt-8 max-w-4xl">
           <p className="text-3xl font-semibold lg:text-4xl">{challengeTitle}</p>
-          {challengeDescription && (
-            <p className="mt-2 text-lg leading-snug text-[var(--color-text-secondary)] lg:text-xl">
-              {challengeDescription}
+          {challengeGoal && (
+            <p className="mt-2 text-2xl leading-snug text-[var(--color-text-secondary)] lg:text-3xl">
+              {challengeGoal}
             </p>
           )}
         </div>
@@ -744,12 +886,9 @@ function DebriefView({ content }: { content: DebriefContent }) {
         “{screen.landingLine}”
       </p>
 
-      <div className="mx-auto mt-3 w-full max-w-4xl shrink-0 rounded-2xl border border-[var(--color-accent)]/40 bg-[var(--color-accent)]/10 px-7 py-3">
-        <p className="text-xs uppercase tracking-[0.3em] text-[var(--color-accent)]">Ask the class</p>
-        <p className="mt-1 text-lg leading-snug text-[var(--color-text-secondary)] lg:text-xl">
-          {screen.askTheClass}
-        </p>
-      </div>
+      {/* `askTheClass` is deliberately not projected: the instructor asks it aloud
+          from their own script. The field stays on DebriefScreen as reference
+          content for that script — this is a render-only removal. */}
 
       {/* Single-screen challenges show no navigation chrome at all. */}
       {multi && (
@@ -883,6 +1022,7 @@ function WrapUpView({
 function PhaseChip({ phase }: { phase: LiveSessionState['phase'] }) {
   const LABELS: Record<LiveSessionState['phase'], string> = {
     lobby: 'Lobby',
+    intro: 'Intro',
     briefing: 'Briefing',
     timed_round: 'Round in progress',
     round_results: 'Round results',

@@ -16,6 +16,10 @@ export interface ChallengeDef {
   makeDefault: (paramDefaults?: ParamDefaults) => SimConfig;
   // Posed on Theater's briefing screen while students wait for the timer.
   predictionQuestion: string;
+  // One line under the projected countdown. Deliberately separate from
+  // `description`: that copy is written to be read at a desk, this is written to
+  // be read across a room in the seconds before the clock starts.
+  shortGoal: string;
 }
 
 export const CHALLENGES: ChallengeDef[] = [
@@ -30,6 +34,7 @@ export const CHALLENGES: ChallengeDef[] = [
       'How does batching change the relationship between bar wait time and the dining room? Where do the throughput gains actually come from?',
     makeDefault: (pd) => defaultConfig({ batching: { early: 'eight', peak: 'eight', late: 'eight' } }, pd),
     predictionQuestion: 'If demand is already high, can the restaurant still waste capacity?',
+    shortGoal: 'Decide: hold guests for a full table of eight, or seat every party right away?',
   },
   {
     key: 'barSize',
@@ -42,6 +47,7 @@ export const CHALLENGES: ChallengeDef[] = [
       'What role does the bar play in the operation beyond serving drinks? What is the actual cost of making it larger?',
     makeDefault: (pd) => defaultConfig({ batching: { early: 'eight', peak: 'eight', late: 'eight' }, barSeats: 39, tables: 16 }, pd),
     predictionQuestion: 'If the bar helps, why not make it enormous?',
+    shortGoal: 'Choose your bar size — and see how many dining tables it costs you.',
   },
   {
     key: 'diningTime',
@@ -53,6 +59,7 @@ export const CHALLENGES: ChallengeDef[] = [
     reflectionQuestion: 'Does it pay to shorten dining time? Does your answer depend on which period you target?',
     makeDefault: (pd) => defaultConfig({ batching: { early: 'eight', peak: 'eight', late: 'eight' } }, pd),
     predictionQuestion: 'Is faster always better?',
+    shortGoal: 'Set how fast each seating turns over, by time of night.',
   },
   {
     key: 'advertising',
@@ -65,6 +72,7 @@ export const CHALLENGES: ChallengeDef[] = [
       'How do your advertising choices affect the variability of outcomes — not just the average? What are the operational consequences of higher demand variability?',
     makeDefault: (pd) => defaultConfig({ batching: { early: 'eight', peak: 'eight', late: 'eight' } }, pd),
     predictionQuestion: 'If 8:00pm is already overloaded, what kind of demand is actually valuable?',
+    shortGoal: 'Choose how much — and how — to attract more guests tonight.',
   },
   {
     key: 'advancedBatching',
@@ -77,6 +85,7 @@ export const CHALLENGES: ChallengeDef[] = [
       'Which batching policy is appropriate at which time of day? What does customising the policy by period actually buy you?',
     makeDefault: (pd) => defaultConfig({ batching: { early: 'none', peak: 'eight', late: 'four_to_eight' } }, pd),
     predictionQuestion: 'What should make the rule change?',
+    shortGoal: 'Set a different seating rule for early, peak, and late in the night.',
   },
   {
     key: 'finalChallenge',
@@ -89,6 +98,7 @@ export const CHALLENGES: ChallengeDef[] = [
       'How does your best configuration balance demand variability and process variability? Which single decision had the largest impact on profit?',
     makeDefault: (pd) => defaultConfig({ batching: { early: 'none', peak: 'eight', late: 'four_to_eight' } }, pd),
     predictionQuestion: 'What are you actually optimizing?',
+    shortGoal: "Combine every lever you've learned into one strategy.",
   },
 ];
 

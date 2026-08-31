@@ -81,9 +81,22 @@ async function unlockChallenge(classCode: string, settings: ClassSettings, key: 
   });
 }
 
-// Start the class: move to the briefing for the first playlist challenge and
-// unlock it so students gain access as the instructor starts talking.
-export async function startClass(classCode: string, settings: ClassSettings): Promise<void> {
+// Start the class: the intro screen, which names no challenge yet. Nothing is
+// unlocked here — the first challenge opens when the instructor continues, so
+// the room reads the ground rules before anyone can start simulating.
+export async function startClass(classCode: string): Promise<void> {
+  await writeLive(classCode, {
+    phase: 'intro',
+    currentChallenge: null,
+    timer: null,
+    roundView: 'round',
+  });
+}
+
+// Leave the intro for the first playlist challenge's briefing, unlocking it so
+// students gain access as the instructor starts talking. Setting
+// currentChallenge here is what pulls every student to the new challenge.
+export async function beginFirstChallenge(classCode: string, settings: ClassSettings): Promise<void> {
   const first = activeChallengeKeys(settings)[0] ?? null;
   await writeLive(classCode, {
     phase: 'briefing',

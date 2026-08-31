@@ -16,7 +16,7 @@ import {
 
 export function normalizeLiveState(data: unknown): LiveSessionState {
   const d = (data ?? {}) as Partial<LiveSessionState>;
-  const phases: LivePhase[] = ['lobby', 'briefing', 'timed_round', 'round_results', 'wrap_up'];
+  const phases: LivePhase[] = ['lobby', 'intro', 'briefing', 'timed_round', 'round_results', 'wrap_up'];
   const t = d.timer as Partial<LiveSessionState['timer']> | null | undefined;
   const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
   return {

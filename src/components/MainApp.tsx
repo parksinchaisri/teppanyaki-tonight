@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useApp } from '../store/appContext';
 import { LobbyWaiting } from './onboarding/LobbyWaiting';
 import { PrepareTab } from './tabs/PrepareTab';
@@ -14,8 +14,15 @@ const TABS: { key: Tab; label: string }[] = [
 ];
 
 export function MainApp() {
-  const { session, setSession, settings, liveState } = useApp();
+  const { session, setSession, settings, liveState, forcedChallenge } = useApp();
   const [tab, setTab] = useState<Tab>('prepare');
+
+  // The instructor has moved the class to a new challenge: bring everyone to
+  // the Challenges tab. `forcedChallenge` is a fresh object only on an actual
+  // transition, so this fires once and does not fight later navigation.
+  useEffect(() => {
+    if (forcedChallenge) setTab('challenges');
+  }, [forcedChallenge]);
 
   // In a live class nothing is available until the instructor starts. Self-paced
   // classes never see this — liveSessionMode gates it.

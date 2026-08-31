@@ -2,12 +2,13 @@ import { CHALLENGE_BY_KEY } from '../../challenges/definitions';
 import { Slider } from '../shared/Slider';
 import { ChallengeShell, type ChallengeContentProps, type ControlProps } from './ChallengeShell';
 
-export function DiningTime({ state, onChange }: ChallengeContentProps) {
+export function DiningTime({ state, onChange, demoMode }: ChallengeContentProps) {
   return (
     <ChallengeShell
       def={CHALLENGE_BY_KEY.diningTime}
       state={state}
       onChange={onChange}
+      demoMode={demoMode}
       renderControls={(config, patch) => <DiningTimeControls config={config} patch={patch} />}
     />
   );
