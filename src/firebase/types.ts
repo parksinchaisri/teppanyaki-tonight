@@ -77,6 +77,11 @@ export interface ClassSettings {
   // have debrief content. Off leaves the Round/Cumulative toggle exactly as it
   // was.
   fullDebriefMode: boolean;
+
+  // Which of the round-results views the instructor lands on first, and the
+  // left-to-right order of the three tab labels. Presentation only: all three
+  // views stay freely clickable in any order at any time.
+  roundResultsOrder: RoundResultsOrder;
 }
 
 export type TheaterJoinUrlDisplay = 'full' | 'custom' | 'hidden';
@@ -104,6 +109,7 @@ export const DEFAULT_SETTINGS: ClassSettings = {
   theaterCustomJoinUrl: '',
   preparePageMode: 'standard',
   theaterRevealCount: 5,
+  roundResultsOrder: 'ranking-first',
   fullDebriefMode: true,
 };
 
@@ -146,6 +152,20 @@ export function confidenceRatingEnabledFor(s: ClassSettings, key: string): boole
 
 export function theaterRevealCount(s: ClassSettings): 5 | 10 {
   return s.theaterRevealCount === 10 ? 10 : 5;
+}
+
+export function roundResultsOrder(s: ClassSettings): RoundResultsOrder {
+  return s.roundResultsOrder === 'debrief-first' ? 'debrief-first' : 'ranking-first';
+}
+
+// The three views in display order. Debrief is dropped when the challenge has
+// no debrief content, which is why this takes the flag rather than assuming.
+// The first entry is also the landing view — order and default are the same
+// decision, so they cannot fall out of step.
+export function roundViewOrder(s: ClassSettings, hasDebrief: boolean): RoundView[] {
+  const ranking: RoundView[] = ['round', 'cumulative'];
+  if (!hasDebrief) return ranking;
+  return roundResultsOrder(s) === 'debrief-first' ? ['debrief', ...ranking] : [...ranking, 'debrief'];
 }
 
 export function theaterJoinUrlDisplay(s: ClassSettings): TheaterJoinUrlDisplay {
@@ -223,6 +243,8 @@ export interface AttemptRow {
 
 // 'intro' sits between the lobby and the first briefing: the class is running
 // but no challenge has been named yet, so currentChallenge is still null.
+export type RoundResultsOrder = 'ranking-first' | 'debrief-first';
+
 export type LivePhase = 'lobby' | 'intro' | 'briefing' | 'timed_round' | 'round_results' | 'wrap_up';
 
 export interface LiveTimer {

@@ -332,6 +332,25 @@ export function SetupTab({ classCode, settings, params }: Props) {
         />
       </label>
 
+      {/* ── Round-results presentation ─────────────────────────────────────── */}
+      <label className="flex cursor-pointer items-center justify-between gap-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
+        <span>
+          <span className="font-medium">Round results open on</span>
+          <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
+            Which view Theater lands on when a round closes, and the order of the three tabs. You can still
+            switch between them freely.
+          </p>
+        </span>
+        <select
+          value={settings.roundResultsOrder ?? 'ranking-first'}
+          onChange={(e) => patch({ roundResultsOrder: e.target.value as ClassSettings['roundResultsOrder'] })}
+          className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface-raised)] px-3 py-2 text-sm outline-none"
+        >
+          <option value="ranking-first">Rankings first</option>
+          <option value="debrief-first">Debrief first</option>
+        </select>
+      </label>
+
       {/* ── Prepare tab presentation ───────────────────────────────────────── */}
       <label className="flex cursor-pointer items-center justify-between gap-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
         <span>

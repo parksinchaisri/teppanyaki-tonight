@@ -166,12 +166,17 @@ export async function getRoster(classCode: string): Promise<StudentRow[]> {
 
 // Close the round: force-submit anyone who simulated but never pressed Submit,
 // reveal the leaderboard for the challenge, and move to the results phase.
+// `landingView` is which of the three views the instructor lands on — the
+// class's roundResultsOrder setting, resolved by the caller, which is the only
+// place that knows whether this challenge has debrief content at all. It has no
+// bearing on what can be clicked afterwards.
 export async function endRound(
   classCode: string,
   challengeKey: string,
+  landingView: RoundView = 'round',
 ): Promise<{ forced: number; noSubmission: number }> {
   if (!firebaseConfigured) {
-    await writeLive(classCode, { phase: 'round_results', roundView: 'round' });
+    await writeLive(classCode, { phase: 'round_results', roundView: landingView });
     return { forced: 0, noSubmission: 0 };
   }
 
@@ -291,7 +296,7 @@ export async function endRound(
   await updateDoc(doc(db, 'classes', classCode), {
     [`settings.leaderboardVisible.${challengeKey}`]: true,
   });
-  await writeLive(classCode, { phase: 'round_results', roundView: 'round', roundHistory: history });
+  await writeLive(classCode, { phase: 'round_results', roundView: landingView, roundHistory: history });
 
   return { forced, noSubmission };
 }

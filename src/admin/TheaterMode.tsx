@@ -19,6 +19,7 @@ import {
   DEFAULT_ROUND_SECONDS,
   DEFAULT_SETTINGS,
   activeChallengeKeys,
+  roundViewOrder,
   theaterJoinUrlDisplay,
   theaterRevealCount,
   type ClassSettings,
@@ -119,13 +120,16 @@ function TheaterSession({ classCode }: { classCode: string }) {
 
   const closeRound = useCallback(
     async (challengeKey: string) => {
-      const res = await endRound(classCode, challengeKey);
+      // The landing view the instructor configured, narrowed to the views this
+      // challenge actually has.
+      const landing = roundViewOrder(settings, debriefFor(challengeKey) !== null)[0] ?? 'round';
+      const res = await endRound(classCode, challengeKey, landing);
       setNotice(
         `Round closed — ${res.forced} result${res.forced === 1 ? '' : 's'} auto-submitted` +
           (res.noSubmission ? `, ${res.noSubmission} with no submission.` : '.'),
       );
     },
-    [classCode],
+    [classCode, settings],
   );
 
   // A3: the moment every student on the roster has submitted, close the round
@@ -327,6 +331,7 @@ function TheaterSession({ classCode }: { classCode: string }) {
             order={order}
             challengeKey={live.currentChallenge}
             debrief={settings.fullDebriefMode !== false ? debriefFor(live.currentChallenge) : null}
+            views={roundViewOrder(settings, settings.fullDebriefMode !== false && debriefFor(live.currentChallenge) !== null)}
             revealCount={theaterRevealCount(settings)}
             revealDone={revealDone}
             onRevealDone={(key) => setRevealDone((prev) => new Set(prev).add(key))}
@@ -762,6 +767,7 @@ function RoundResultsView({
   order,
   challengeKey,
   debrief,
+  views,
   revealCount,
   revealDone,
   onRevealDone,
@@ -773,15 +779,16 @@ function RoundResultsView({
   order: string[];
   challengeKey: string;
   debrief: DebriefContent | null;
+  // Display order, from the class's roundResultsOrder setting; a challenge with
+  // no debrief content simply has no Debrief tab. Order only — every view in
+  // this list stays clickable at any time, in any sequence.
+  views: RoundView[];
   revealCount: number;
   revealDone: Set<string>;
   onRevealDone: (key: string) => void;
 }) {
-  // A challenge with no debrief content simply has no Debrief tab — the toggle
-  // falls back to the original two options rather than showing an empty state.
-  const views: RoundView[] = debrief ? ['round', 'cumulative', 'debrief'] : ['round', 'cumulative'];
   // Guard against the stored view pointing at a tab this challenge lacks.
-  const view: RoundView = views.includes(live.roundView) ? live.roundView : 'round';
+  const view: RoundView = views.includes(live.roundView) ? live.roundView : (views[0] ?? 'round');
   // Both standings views get the reveal, each tracked separately so switching
   // tabs does not replay one that has already run. Debrief never reveals.
   const revealKey = `${challengeKey}:${view}`;

@@ -22,7 +22,7 @@ import {
   sortRoster,
   NUDGE_AFTER_MS,
 } from '../src/firebase/liveLogic';
-import { DEFAULT_SETTINGS, type AttemptRow, type ClassSettings, type LeaderboardRow, type LiveSessionState, type StudentRow } from '../src/firebase/types';
+import { DEFAULT_SETTINGS, roundViewOrder, type AttemptRow, type ClassSettings, type LeaderboardRow, type LiveSessionState, type StudentRow } from '../src/firebase/types';
 
 let failures = 0;
 function check(label: string, pass: boolean, detail: string) {
@@ -208,6 +208,19 @@ check('challenge view is expanded', formatCurrentView('Challenges:barSize', labe
 check('unknown challenge falls back to its key', formatCurrentView('Challenges:mystery', label) === 'Challenges: mystery', 'key passed through');
 check('plain view passes through', formatCurrentView('Prepare', label) === 'Prepare', 'no colon');
 check('empty view reads as a dash', formatCurrentView('', label) === '—', 'never reported');
+
+section('9c. Round-results view order');
+const rankingFirst = settings({ roundResultsOrder: 'ranking-first' });
+const debriefFirst = settings({ roundResultsOrder: 'debrief-first' });
+check('default lands on This Round', roundViewOrder(rankingFirst, true)[0] === 'round', 'ranking-first');
+check('ranking-first order', roundViewOrder(rankingFirst, true).join(',') === 'round,cumulative,debrief', roundViewOrder(rankingFirst, true).join(','));
+check('debrief-first lands on Debrief', roundViewOrder(debriefFirst, true)[0] === 'debrief', 'debrief-first');
+check('debrief-first order', roundViewOrder(debriefFirst, true).join(',') === 'debrief,round,cumulative', roundViewOrder(debriefFirst, true).join(','));
+check('unset setting behaves as ranking-first', roundViewOrder(settings(), true).join(',') === 'round,cumulative,debrief', 'default');
+check('no debrief content drops the tab', roundViewOrder(debriefFirst, false).join(',') === 'round,cumulative', roundViewOrder(debriefFirst, false).join(','));
+check('every view stays available in both orders',
+  roundViewOrder(rankingFirst, true).slice().sort().join(',') === roundViewOrder(debriefFirst, true).slice().sort().join(','),
+  'same set, different order — nothing is gated');
 
 section('10. Countdown formatting');
 check('minutes and seconds', formatCountdown(125_000) === '02:05', formatCountdown(125_000));
