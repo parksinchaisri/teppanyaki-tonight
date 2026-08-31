@@ -31,16 +31,17 @@ export function BriefingControlsPreview({
   });
 
   // Panels are nudged up a notch for the room, and capped so nothing can push
-  // the briefing off a projector. Advanced Batching is the one panel that fills
-  // both columns; it needs its own numbers to clear the cap on an 800px-tall
-  // screen (see the layout note in AdvancedBatching.tsx).
+  // the briefing off a projector. Two panels fold into two columns to fit —
+  // Advertising clears the cap at these defaults, but Advanced Batching, the
+  // tallest, still needs its own zoom and padding to fit an 800px-tall screen.
   let zoom = 1.1;
   let box = 'max-h-[44vh] p-5';
   let panel: React.ReactNode = null;
   if (challengeKey === 'batching') panel = <BatchingControls config={config} patch={noop} />;
   else if (challengeKey === 'barSize') panel = <BarSizeControls config={config} patch={noop} />;
   else if (challengeKey === 'diningTime') panel = <DiningTimeControls config={config} patch={noop} />;
-  else if (challengeKey === 'advertising') panel = <AdvertisingControls config={config} patch={noop} />;
+  else if (challengeKey === 'advertising')
+    panel = <AdvertisingControls config={config} patch={noop} layout="two-column" />;
   else if (challengeKey === 'advancedBatching') {
     panel = <AdvancedBatchingControls config={config} patch={noop} layout="two-column" />;
     zoom = 1;
