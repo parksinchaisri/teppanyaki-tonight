@@ -11,6 +11,7 @@ import {
 import { subscribeSettings } from '../firebase/classSettings';
 import { subscribeAttemptCounts } from '../firebase/attempts';
 import { subscribeLiveState } from '../firebase/liveSession';
+import { subscribeStudentReflections } from '../firebase/reflections';
 import {
   DEFAULT_LIVE_STATE,
   DEFAULT_PARAMS,
@@ -106,7 +107,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [settings, setSettings] = useState<ClassSettings>(DEFAULT_SETTINGS);
   const [params, setParams] = useState<ParamOverrides>(DEFAULT_PARAMS);
   const [completed, setCompleted] = useState<Record<string, boolean>>(() => loadCompleted());
-  const [reflected, setReflected] = useState<Record<string, boolean>>(() => loadReflected());
+  // Local (optimistic, survives reload) merged with what Firestore actually holds,
+  // so the gate never re-blocks a student whose reflection is already recorded.
+  const [localReflected, setLocalReflected] = useState<Record<string, boolean>>(() => loadReflected());
+  const [serverReflected, setServerReflected] = useState<Record<string, boolean>>({});
   const [challengeStates, setChallengeStates] = useState<Record<string, ChallengeUIState>>({});
   const [animationTime, setAnimationTime] = useState<Record<string, number>>({});
   const [liveState, setLiveState] = useState<LiveSessionState>(DEFAULT_LIVE_STATE);
@@ -136,11 +140,26 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!session?.classCode || !session.studentId) {
+      setServerReflected({});
+      return;
+    }
+    return subscribeStudentReflections(session.classCode, session.studentId, (keys) =>
+      setServerReflected(Object.fromEntries(keys.map((k) => [k, true]))),
+    );
+  }, [session?.classCode, session?.studentId]);
+
+  useEffect(() => {
+    if (!session?.classCode || !session.studentId) {
       setServerAttempts({});
       return;
     }
     return subscribeAttemptCounts(session.classCode, session.studentId, setServerAttempts);
   }, [session?.classCode, session?.studentId]);
+
+  const reflected = useMemo(
+    () => ({ ...localReflected, ...serverReflected }),
+    [localReflected, serverReflected],
+  );
 
   // The server count is authoritative once it catches up; the local count covers
   // the write round-trip (and demo mode, where nothing is persisted at all).
@@ -174,7 +193,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   };
 
   const markReflected = (challengeKey: string) => {
-    setReflected((prev) => {
+    setLocalReflected((prev) => {
       const next = { ...prev, [challengeKey]: true };
       localStorage.setItem(REFLECTED_KEY, JSON.stringify(next));
       return next;
