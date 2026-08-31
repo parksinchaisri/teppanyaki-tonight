@@ -33,10 +33,18 @@ export function Arrow({ big }: { big?: boolean }) {
 
 // An 8-seat teppanyaki table: a grill with seats around it, some filled. Same
 // shapes as the Prepare page floor schematic, sized for projection.
-export function SeatTable({ filled, tone }: { filled: number; tone: string }) {
+export function SeatTable({
+  filled,
+  tone,
+  className = 'h-40 w-52',
+}: {
+  filled: number;
+  tone: string;
+  className?: string;
+}) {
   const seats = Array.from({ length: 8 }, (_, i) => i < filled);
   return (
-    <svg viewBox="0 0 140 110" className="h-40 w-52">
+    <svg viewBox="0 0 140 110" className={className}>
       <rect x="45" y="35" width="50" height="42" rx="6" fill="var(--color-bg)" stroke="var(--color-border)" />
       <text x="70" y="62" textAnchor="middle" fontSize="20">👨‍🍳</text>
       {/* three seats each side, two at the grill end */}

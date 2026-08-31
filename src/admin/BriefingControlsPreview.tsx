@@ -53,15 +53,22 @@ export function BriefingControlsPreview({
   if (!panel) return null;
 
   return (
-    <div className="mx-auto mt-8 w-full max-w-3xl">
+    <div className="mx-auto mt-5 w-full max-w-5xl">
       <p className="mb-3 text-sm uppercase tracking-[0.2em] text-[var(--color-accent)]">What you can change</p>
       {/* Inert: no pointer events, not focusable, nothing to submit. */}
+      {/* Capped so the tallest panel (Advanced Batching: 3 periods x 4 modes)
+          scrolls inside its own box instead of pushing the briefing off the
+          projected screen. */}
       <fieldset
         disabled
         aria-hidden
-        className="pointer-events-none select-none rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-6 text-left"
+        className="pointer-events-none max-h-[44vh] select-none overflow-y-auto rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5 text-left"
       >
-        <div className="origin-top text-lg [transform:scale(1.15)] [transform-origin:top_center]">{panel}</div>
+        {/* `zoom` rather than `transform: scale()`: a transform enlarges the
+            painted result without changing the layout box, so the panel drew
+            outside its own container on every challenge. zoom reflows, so the
+            box grows with the content and nothing overhangs. */}
+        <div style={{ zoom: 1.1 }}>{panel}</div>
       </fieldset>
     </div>
   );

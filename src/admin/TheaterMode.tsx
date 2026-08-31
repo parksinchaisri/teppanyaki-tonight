@@ -4,7 +4,6 @@ import { subscribeSettings } from '../firebase/classSettings';
 import { subscribeLeaderboard } from '../firebase/leaderboard';
 import { subscribeStudents } from '../firebase/attempts';
 import {
-  cumulativeStandings,
   endRound,
   nextChallenge,
   nextChallengeKey,
@@ -245,7 +244,7 @@ function TheaterSession({ classCode }: { classCode: string }) {
         </button>
       )}
 
-      <main className="flex flex-1 flex-col justify-center px-10 py-8">
+      <main className="flex min-h-0 flex-1 flex-col justify-center px-10 py-4">
         {live.phase === 'lobby' && (
           <LobbyView
             classCode={classCode}
@@ -269,6 +268,8 @@ function TheaterSession({ classCode }: { classCode: string }) {
             submitted={submittedCount}
             students={students}
             autoClosing={autoClosing}
+            challengeTitle={def?.title}
+            challengeDescription={def?.description}
           />
         )}
         {live.phase === 'round_results' && live.currentChallenge && (
@@ -281,13 +282,21 @@ function TheaterSession({ classCode }: { classCode: string }) {
             challengeKey={live.currentChallenge}
             debrief={settings.fullDebriefMode !== false ? debriefFor(live.currentChallenge) : null}
             revealCount={theaterRevealCount(settings)}
-            revealPending={!revealDone.has(live.currentChallenge)}
-            onRevealDone={() =>
-              setRevealDone((prev) => new Set(prev).add(live.currentChallenge as string))
-            }
+            revealDone={revealDone}
+            onRevealDone={(key) => setRevealDone((prev) => new Set(prev).add(key))}
           />
         )}
-        {live.phase === 'wrap_up' && <WrapUpView rows={rows} students={students} order={order} />}
+        {live.phase === 'wrap_up' && (
+          <WrapUpView
+            rows={rows}
+            students={students}
+            order={order}
+            roundHistory={live.roundHistory}
+            revealCount={theaterRevealCount(settings)}
+            revealPending={!revealDone.has('wrap_up')}
+            onRevealDone={() => setRevealDone((prev) => new Set(prev).add('wrap_up'))}
+          />
+        )}
       </main>
     </div>
   );
@@ -393,10 +402,18 @@ function GrillScene() {
     { x: 182, begin: '3.4s', dur: '5.8s' },
   ];
   return (
-    // Its own row at the foot rather than layered behind the roster, where it
-    // was completely obscured by the name chips.
-    <div aria-hidden className="pointer-events-none mt-2 flex shrink-0 justify-center opacity-60">
-      <svg viewBox="0 0 300 150" className="h-16 w-auto">
+    // Parked in the empty margin beside the centred column, so it can be large
+    // and clearly visible without competing with the class code, the roster or
+    // the flavour line. Hidden on narrower screens where that margin does not
+    // exist and it would overlap them.
+    <div
+      aria-hidden
+      className="pointer-events-none absolute bottom-3 left-4 z-0 hidden opacity-85 xl:block 2xl:left-10"
+    >
+      {/* viewBox cropped to the drawing itself — the original had wide empty
+          margins, so its box overlapped the roster and flavour line even where
+          nothing was painted. */}
+      <svg viewBox="46 8 208 128" className="h-40 w-auto 2xl:h-48">
         {wisps.map((w) => (
           <path
             key={w.x}
@@ -508,10 +525,10 @@ function BriefingView({
   params: ParamOverrides;
 }) {
   return (
-    <div className="mx-auto max-w-5xl overflow-y-auto text-center" style={{ maxHeight: 'calc(100vh - 10rem)' }}>
-      <p className="text-xl uppercase tracking-[0.3em] text-[var(--color-accent)]">Next challenge</p>
-      <h1 className="mt-4 text-5xl font-bold leading-tight lg:text-6xl">{title ?? 'Challenge'}</h1>
-      <p className="mt-5 text-xl leading-relaxed text-[var(--color-text-secondary)] lg:text-2xl">{description}</p>
+    <div className="mx-auto max-w-5xl text-center">
+      <p className="text-lg uppercase tracking-[0.3em] text-[var(--color-accent)]">Next challenge</p>
+      <h1 className="mt-2 text-4xl font-bold leading-tight lg:text-5xl">{title ?? 'Challenge'}</h1>
+      <p className="mt-3 text-lg leading-snug text-[var(--color-text-secondary)] lg:text-xl">{description}</p>
 
       {/* D4: the challenge's real config panel, inert — something concrete to
           point at while Simulate is still held. */}
@@ -519,9 +536,9 @@ function BriefingView({
 
       {/* Something to pose to the room while the timer has not started. */}
       {CHALLENGE_BY_KEY[challengeKey]?.predictionQuestion && (
-        <div className="mx-auto mt-8 max-w-3xl rounded-2xl border border-[var(--color-accent)]/40 bg-[var(--color-accent)]/10 px-8 py-6">
-          <p className="text-sm uppercase tracking-[0.3em] text-[var(--color-accent)]">Predict</p>
-          <p className="mt-2 text-2xl leading-relaxed lg:text-3xl">
+        <div className="mx-auto mt-4 max-w-4xl rounded-2xl border border-[var(--color-accent)]/40 bg-[var(--color-accent)]/10 px-7 py-4">
+          <p className="text-xs uppercase tracking-[0.3em] text-[var(--color-accent)]">Predict</p>
+          <p className="mt-1 text-xl leading-snug lg:text-2xl">
             {CHALLENGE_BY_KEY[challengeKey].predictionQuestion}
           </p>
         </div>
@@ -535,11 +552,15 @@ function TimedRoundView({
   submitted,
   students,
   autoClosing,
+  challengeTitle,
+  challengeDescription,
 }: {
   live: LiveSessionState;
   submitted: number;
   students: StudentRow[];
   autoClosing: boolean;
+  challengeTitle?: string;
+  challengeDescription?: string;
 }) {
   const { label, expired } = useCountdown(live.timer?.endsAt ?? null);
   const joined = Math.max(students.length, submitted);
@@ -571,7 +592,19 @@ function TimedRoundView({
       {expired && (
         <p className="mt-6 text-5xl font-bold tracking-widest text-[var(--color-accent-red)]">TIME&apos;S UP</p>
       )}
-      <p className="mt-10 text-5xl font-semibold lg:text-6xl">
+      {/* The challenge's own copy, so it cannot drift from what students read. */}
+      {challengeTitle && (
+        <div className="mx-auto mt-8 max-w-4xl">
+          <p className="text-3xl font-semibold lg:text-4xl">{challengeTitle}</p>
+          {challengeDescription && (
+            <p className="mt-2 text-lg leading-snug text-[var(--color-text-secondary)] lg:text-xl">
+              {challengeDescription}
+            </p>
+          )}
+        </div>
+      )}
+
+      <p className="mt-8 text-5xl font-semibold lg:text-6xl">
         <span className="text-[var(--color-accent-green)]">{submitted}</span>
         <span className="text-[var(--color-text-muted)]"> / {joined} submitted</span>
       </p>
@@ -588,7 +621,7 @@ function RoundResultsView({
   challengeKey,
   debrief,
   revealCount,
-  revealPending,
+  revealDone,
   onRevealDone,
 }: {
   classCode: string;
@@ -599,19 +632,29 @@ function RoundResultsView({
   challengeKey: string;
   debrief: DebriefContent | null;
   revealCount: number;
-  revealPending: boolean;
-  onRevealDone: () => void;
+  revealDone: Set<string>;
+  onRevealDone: (key: string) => void;
 }) {
   // A challenge with no debrief content simply has no Debrief tab — the toggle
   // falls back to the original two options rather than showing an empty state.
   const views: RoundView[] = debrief ? ['round', 'cumulative', 'debrief'] : ['round', 'cumulative'];
   // Guard against the stored view pointing at a tab this challenge lacks.
   const view: RoundView = views.includes(live.roundView) ? live.roundView : 'round';
-  // Only "This Round" gets the reveal; Cumulative and Debrief are plain views.
-  const showReveal = view === 'round' && revealPending;
+  // Both standings views get the reveal, each tracked separately so switching
+  // tabs does not replay one that has already run. Debrief never reveals.
+  const revealKey = `${challengeKey}:${view}`;
+  const showReveal = (view === 'round' || view === 'cumulative') && !revealDone.has(revealKey);
   const ranked = useMemo(
-    () => computeRanked({ rows, students, order, challengeKey, view: 'round', roundHistory: live.roundHistory }),
-    [rows, students, order, challengeKey, live.roundHistory],
+    () =>
+      computeRanked({
+        rows,
+        students,
+        order,
+        challengeKey,
+        view: view === 'cumulative' ? 'cumulative' : 'round',
+        roundHistory: live.roundHistory,
+      }),
+    [rows, students, order, challengeKey, view, live.roundHistory],
   );
 
   const LABELS: Record<RoundView, string> = {
@@ -621,7 +664,7 @@ function RoundResultsView({
   };
 
   return (
-    <div className="mx-auto w-full max-w-4xl">
+    <div className="mx-auto w-full max-w-6xl">
       <div className="mb-6 flex items-center justify-between gap-4">
         <h1 className="text-3xl font-bold">
           {view === 'cumulative'
@@ -650,7 +693,12 @@ function RoundResultsView({
       {view === 'debrief' && debrief ? (
         <DebriefView content={debrief} />
       ) : showReveal ? (
-        <RankReveal ranked={ranked} count={revealCount} onDone={onRevealDone} />
+        <RankReveal
+          ranked={ranked}
+          count={revealCount}
+          label={view === 'cumulative' ? 'Reveal Cumulative' : 'Reveal Rankings'}
+          onDone={() => onRevealDone(revealKey)}
+        />
       ) : (
         <RankBoard
           rows={rows}
@@ -678,32 +726,34 @@ function DebriefView({ content }: { content: DebriefContent }) {
   const multi = screens.length > 1;
 
   return (
-    <div className="overflow-y-auto text-center" style={{ maxHeight: 'calc(100vh - 14rem)' }}>
-      <h2 className="text-4xl font-bold leading-tight lg:text-5xl">{screen.title}</h2>
+    // Sized to the viewport rather than scrolled: the denser screens tighten
+    // their own spacing instead of pushing content below the fold.
+    <div className="flex w-full flex-col justify-start text-center">
+      <h2 className="shrink-0 text-3xl font-bold leading-tight lg:text-4xl">{screen.title}</h2>
 
-      <div className="my-10 flex justify-center">
+      <div className="my-5 flex min-h-0 shrink justify-center overflow-hidden">
         <DebriefVisual which={screen.visual} />
       </div>
 
       {/* Connective tissue between screens, sitting under the visual. */}
-      <div className="mb-8">
+      <div className="mb-4 shrink-0">
         <LittleLawStrip {...screen.littleLaw} />
       </div>
 
-      <p className="mx-auto max-w-3xl rounded-2xl border-l-4 border-[var(--color-accent-green)] bg-[var(--color-accent-green)]/10 px-8 py-6 text-2xl font-medium italic leading-relaxed lg:text-3xl">
+      <p className="mx-auto w-full max-w-4xl shrink-0 rounded-2xl border-l-4 border-[var(--color-accent-green)] bg-[var(--color-accent-green)]/10 px-7 py-4 text-xl font-medium italic leading-snug lg:text-2xl">
         “{screen.landingLine}”
       </p>
 
-      <div className="mx-auto mt-6 max-w-3xl rounded-2xl border border-[var(--color-accent)]/40 bg-[var(--color-accent)]/10 px-8 py-5">
-        <p className="text-sm uppercase tracking-[0.3em] text-[var(--color-accent)]">Ask the class</p>
-        <p className="mt-2 text-xl leading-relaxed text-[var(--color-text-secondary)] lg:text-2xl">
+      <div className="mx-auto mt-3 w-full max-w-4xl shrink-0 rounded-2xl border border-[var(--color-accent)]/40 bg-[var(--color-accent)]/10 px-7 py-3">
+        <p className="text-xs uppercase tracking-[0.3em] text-[var(--color-accent)]">Ask the class</p>
+        <p className="mt-1 text-lg leading-snug text-[var(--color-text-secondary)] lg:text-xl">
           {screen.askTheClass}
         </p>
       </div>
 
       {/* Single-screen challenges show no navigation chrome at all. */}
       {multi && (
-        <div className="mt-8 flex items-center justify-center gap-6">
+        <div className="mt-4 flex shrink-0 items-center justify-center gap-6">
           <button
             onClick={() => setIndex((n) => Math.max(0, n - 1))}
             disabled={i === 0}
@@ -740,14 +790,38 @@ function WrapUpView({
   rows,
   students,
   order,
+  roundHistory,
+  revealCount,
+  revealPending,
+  onRevealDone,
 }: {
   rows: LeaderboardRow[];
   students: StudentRow[];
   order: string[];
+  roundHistory: LiveSessionState['roundHistory'];
+  revealCount: number;
+  revealPending: boolean;
+  onRevealDone: () => void;
 }) {
-  const standings = cumulativeStandings(rows, order, students);
-  const podium = standings.filter((s) => s.submitted).slice(0, 3);
-  const rest = standings.slice(podium.length);
+  const ranked = useMemo(
+    () => computeRanked({ rows, students, order, challengeKey: null, view: 'cumulative', roundHistory }),
+    [rows, students, order, roundHistory],
+  );
+  const submitted = ranked.filter((r) => r.submitted);
+
+  // The closing screen builds to first place the same way each round does,
+  // rather than printing the finish order all at once.
+  if (revealPending) {
+    return (
+      <div className="mx-auto w-full max-w-5xl">
+        <h1 className="mb-6 text-center text-5xl font-bold lg:text-6xl">Final Standings</h1>
+        <RankReveal ranked={ranked} count={revealCount} label="Reveal Final Standings" onDone={onRevealDone} />
+      </div>
+    );
+  }
+
+  const podium = submitted.slice(0, 3);
+  const rest = ranked.slice(podium.length);
   const MEDALS = ['🥇', '🥈', '🥉'];
   const FRAMES = [
     'border-[#d4af37] bg-[#d4af37]/10',
@@ -756,11 +830,11 @@ function WrapUpView({
   ];
 
   return (
-    <div className="mx-auto w-full max-w-4xl text-center">
+    <div className="mx-auto w-full max-w-5xl text-center">
       <h1 className="text-5xl font-bold lg:text-6xl">Final Standings</h1>
       <p className="mt-2 text-lg text-[var(--color-text-secondary)]">Total profit across every challenge</p>
 
-      <div className="mt-10 space-y-3">
+      <div className="mt-8 space-y-3">
         {podium.map((s, i) => (
           <div
             key={s.studentId}
@@ -773,13 +847,11 @@ function WrapUpView({
             <span className="font-mono text-4xl text-[var(--color-accent-green)]">{money(s.value)}</span>
           </div>
         ))}
-        {!podium.length && (
-          <p className="text-xl text-[var(--color-text-muted)]">No submissions were recorded.</p>
-        )}
+        {!podium.length && <p className="text-xl text-[var(--color-text-muted)]">No submissions were recorded.</p>}
       </div>
 
       {rest.length > 0 && (
-        <div className="mt-8 max-h-[40vh] space-y-2 overflow-y-auto pr-1 text-left">
+        <div className="mt-6 max-h-[32vh] space-y-2 overflow-y-auto pr-1 text-left">
           {rest.map((s, i) => (
             <div
               key={s.studentId}

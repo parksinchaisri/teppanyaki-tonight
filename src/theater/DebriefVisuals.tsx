@@ -36,17 +36,17 @@ function BatchingFragmentation() {
     <div className="flex flex-wrap items-start justify-center gap-16">
       <div className="text-center">
         <p className={CAPTION}>No batching</p>
-        <div className="mt-4 flex flex-col items-center gap-1">
+        <div className="mt-3 flex flex-col items-center -space-y-2">
           {[2, 3, 3].map((n, i) => (
-            <SeatTable key={i} filled={n} tone="var(--color-accent-amber)" />
+            <SeatTable key={i} filled={n} tone="var(--color-accent-amber)" className="h-24 w-32" />
           ))}
         </div>
         <p className="mt-3 text-base text-[var(--color-text-muted)]">Same customers. Three tables consumed.</p>
       </div>
       <div className="text-center">
         <p className={CAPTION}>Batching</p>
-        <div className="mt-4 flex justify-center">
-          <SeatTable filled={8} tone="var(--color-accent-green)" />
+        <div className="mt-3 flex justify-center">
+          <SeatTable filled={8} tone="var(--color-accent-green)" className="h-28 w-36" />
         </div>
         <p className="mt-3 text-2xl text-[var(--color-text-primary)]">2 + 3 + 3 → one full table</p>
       </div>
@@ -112,7 +112,7 @@ function BarBufferCurve() {
 function VariabilityTypes() {
   return (
     <div className="mx-auto grid w-full max-w-4xl gap-6 md:grid-cols-2">
-      <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-6 text-center">
+      <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 text-center">
         <p className={CAPTION}>Challenges 1–2</p>
         <p className="mt-1 text-2xl font-semibold text-[var(--color-accent)]">Demand variability</p>
         <div className="mt-6 flex items-end justify-center gap-2">
@@ -122,11 +122,11 @@ function VariabilityTypes() {
         </div>
         <p className="mt-4 text-lg text-[var(--color-text-secondary)]">irregular arrivals → a buffer</p>
       </div>
-      <div className="rounded-2xl border border-[var(--color-accent-green)]/50 bg-[var(--color-surface)] p-6 text-center">
+      <div className="rounded-2xl border border-[var(--color-accent-green)]/50 bg-[var(--color-surface)] p-4 text-center">
         <p className={CAPTION}>Challenge 3</p>
         <p className="mt-1 text-2xl font-semibold text-[var(--color-accent-green)]">Process variability</p>
         <div className="mt-4 flex items-center justify-center gap-4">
-          <SeatTable filled={8} tone="var(--color-accent-green)" />
+          <SeatTable filled={8} tone="var(--color-accent-green)" className="h-24 w-32" />
           <span className="font-mono text-2xl text-[var(--color-text-secondary)]">45 / 60 / 75</span>
         </div>
         <p className="mt-2 text-lg text-[var(--color-text-secondary)]">how long the table is held</p>
@@ -144,7 +144,7 @@ function DiningTimeClock() {
         <span className="text-4xl text-[var(--color-text-muted)]">→</span>
         <ClockTable minutes={45} tone="var(--color-accent-green)" figure="8 ÷ 0.75 = 10.67/hr" />
       </div>
-      <p className="mt-10 text-5xl font-bold text-[var(--color-accent-green)]">+33% table capacity</p>
+      <p className="mt-6 text-4xl font-bold text-[var(--color-accent-green)]">+33% table capacity</p>
     </div>
   );
 }
@@ -153,8 +153,8 @@ function ClockTable({ minutes, tone, figure }: { minutes: number; tone: string; 
   return (
     <div className="text-center">
       <div className="flex items-center justify-center gap-4">
-        <SeatTable filled={8} tone={tone} />
-        <svg viewBox="0 0 48 48" className="h-16 w-16">
+        <SeatTable filled={8} tone={tone} className="h-24 w-32" />
+        <svg viewBox="0 0 48 48" className="h-12 w-12">
           <circle cx="24" cy="24" r="20" fill="none" stroke={tone} strokeWidth="2.5" />
           <line x1="24" y1="24" x2="24" y2="11" stroke={tone} strokeWidth="2.5" strokeLinecap="round" />
           <line
@@ -203,7 +203,7 @@ function Arrow({ from, to, color }: { from: [number, number]; to: [number, numbe
 function AdvertisingDemand() {
   return (
     <div className="mx-auto w-full max-w-4xl">
-      <svg viewBox="0 0 620 250" className="w-full">
+      <svg viewBox="0 0 620 250" className="mx-auto max-h-[30vh] w-full">
         {/* unused early-evening capacity */}
         <path d="M 40 205 C 130 200 175 180 235 118 L 235 205 Z" fill="var(--color-accent)" opacity="0.14" />
         <path
@@ -242,7 +242,7 @@ function AdvertisingDemand() {
 
 function Annot({ tone, label, caption }: { tone: string; label: string; caption: string }) {
   return (
-    <div className="rounded-xl border bg-[var(--color-surface)] px-4 py-3 text-center" style={{ borderColor: tone }}>
+    <div className="rounded-xl border bg-[var(--color-surface)] px-3 py-2 text-center" style={{ borderColor: tone }}>
       <p className="text-lg font-semibold uppercase tracking-wide" style={{ color: tone }}>
         {label}
       </p>
@@ -334,13 +334,13 @@ function SystemNodes() {
   ];
   return (
     <div className="mx-auto w-full max-w-4xl">
-      <div className="grid grid-cols-2 items-center gap-x-14 gap-y-4">
+      <div className="grid grid-cols-2 items-center gap-x-14 gap-y-1">
         {nodes.slice(0, 2).map((n) => (
           <Node key={n.label} {...n} />
         ))}
         <div className="col-span-2 flex justify-center">
-          <div className="flex h-40 w-40 flex-col items-center justify-center rounded-full border-4 border-[var(--color-accent-green)] bg-[var(--color-accent-green)]/10 p-4 text-center">
-            <span className="text-lg font-bold leading-tight text-[var(--color-accent-green)]">
+          <div className="flex h-24 w-24 flex-col items-center justify-center rounded-full border-4 border-[var(--color-accent-green)] bg-[var(--color-accent-green)]/10 p-2 text-center">
+            <span className="text-xs font-bold leading-tight text-[var(--color-accent-green)]">
               Profitable customer flow
             </span>
           </div>
@@ -360,9 +360,9 @@ function SystemNodes() {
 
 function Node({ label, line }: { label: string; line: string }) {
   return (
-    <div className="rounded-xl border border-[var(--color-accent)]/40 bg-[var(--color-surface)] px-5 py-3 text-center">
-      <p className="text-xl font-semibold text-[var(--color-accent)]">{label}</p>
-      <p className="mt-1 text-base text-[var(--color-text-secondary)]">{line}</p>
+    <div className="rounded-xl border border-[var(--color-accent)]/40 bg-[var(--color-surface)] px-4 py-2 text-center">
+      <p className="text-lg font-semibold text-[var(--color-accent)]">{label}</p>
+      <p className="text-sm text-[var(--color-text-secondary)]">{line}</p>
     </div>
   );
 }
@@ -383,12 +383,12 @@ function SynthesisBands() {
       {bands.map((b) => (
         <div
           key={b.label}
-          className="flex items-center gap-5 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-5 py-3 text-left"
+          className="flex items-center gap-5 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-5 py-1.5 text-left"
         >
-          <span className="w-52 shrink-0 text-lg font-semibold uppercase tracking-wide text-[var(--color-accent)]">
+          <span className="w-52 shrink-0 text-base font-semibold uppercase tracking-wide text-[var(--color-accent)]">
             {b.label}
           </span>
-          <span className="text-lg text-[var(--color-text-secondary)]">{b.line}</span>
+          <span className="text-base text-[var(--color-text-secondary)]">{b.line}</span>
         </div>
       ))}
     </div>

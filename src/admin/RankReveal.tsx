@@ -4,21 +4,27 @@ import { money } from '../lib/format';
 
 const STEP_MS = 1300; // pause between reveals
 
-// Kahoot-style countdown reveal: placeholders for the top N, then #N up to #1
-// one at a time. Purely presentational — the data is already public by the time
-// this renders, so the button controls drama, not access.
+// Kahoot-style countdown reveal.
+//
+// Two orderings are in play and they are deliberately opposite:
+//   • SPATIAL — slots are laid out rank 1 at the top down to rank N at the
+//     bottom, so the finished board reads like any other leaderboard.
+//   • TEMPORAL — reveals run from rank N upward to rank 1, so the winner lands
+//     last. Each row animates into its own correct slot.
 export function RankReveal({
   ranked,
   count,
   onDone,
+  label,
 }: {
   ranked: RankedRow[];
   count: number;
   onDone: () => void;
+  label?: string;
 }) {
   const top = ranked.filter((r) => r.submitted).slice(0, count);
   const slots = top.length || count;
-  // How many of the bottom-most places have been revealed so far.
+  // How many places have been revealed so far, counting up from the bottom.
   const [revealed, setRevealed] = useState(0);
   const [started, setStarted] = useState(false);
   const doneRef = useRef(onDone);
@@ -34,14 +40,15 @@ export function RankReveal({
     return () => clearTimeout(id);
   }, [started, revealed, slots]);
 
-  // Places count down: index 0 of the display is the lowest place shown.
-  const places = Array.from({ length: slots }, (_, i) => slots - i); // [N..1]
+  // Rendered top-to-bottom as 1..N; a place is revealed once the countdown has
+  // reached it from the bottom.
+  const places = Array.from({ length: slots }, (_, i) => i + 1);
 
   return (
-    <div className="mx-auto w-full max-w-4xl">
+    <div className="mx-auto w-full">
       <style>{`
         @keyframes revealIn{0%{opacity:0;transform:translateX(-40px) scale(.96)}70%{opacity:1;transform:translateX(0) scale(1.03)}100%{opacity:1;transform:none}}
-        @keyframes winnerPulse{0%{transform:scale(1)}30%{transform:scale(1.06)}60%{transform:scale(.99)}100%{transform:scale(1)}}
+        @keyframes winnerPulse{0%{transform:scale(1)}30%{transform:scale(1.05)}60%{transform:scale(.99)}100%{transform:scale(1)}}
       `}</style>
 
       <div className="mb-6 flex items-center justify-center">
@@ -50,7 +57,7 @@ export function RankReveal({
             onClick={() => setStarted(true)}
             className="rounded-xl bg-[var(--color-accent)] px-8 py-4 text-2xl font-semibold text-white shadow-lg"
           >
-            Reveal Rankings →
+            {label ?? 'Reveal Rankings'} →
           </button>
         ) : (
           <p className="text-xl text-[var(--color-text-muted)]">
@@ -60,8 +67,8 @@ export function RankReveal({
       </div>
 
       <div className="space-y-3">
-        {places.map((place, i) => {
-          const isRevealed = started && i < revealed;
+        {places.map((place) => {
+          const isRevealed = started && revealed >= slots - place + 1;
           const row = top[place - 1];
           const isWinner = place === 1;
           if (!isRevealed) {
