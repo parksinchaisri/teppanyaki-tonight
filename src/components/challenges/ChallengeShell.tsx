@@ -276,7 +276,7 @@ export function ChallengeShell({ def, renderControls, state, onChange, wide, san
           disabled={state.reflection.trim().length < 10 || state.reflectSubmitted}
           className="rounded-md bg-[var(--color-surface-raised)] px-4 py-2 text-sm font-medium disabled:opacity-40"
         >
-          {state.reflectSubmitted ? 'Reflection saved ✓' : 'Submit reflection'}
+          {state.reflectSubmitted ? 'Reflection saved ✓' : 'Save Reflection'}
         </button>
         {state.reflection.trim().length > 0 && state.reflection.trim().length < 10 && (
           <span className="text-xs text-[var(--color-accent-amber)]">A little more detail, please.</span>
@@ -461,7 +461,7 @@ function SubmitBlock({
         disabled={!best}
         className="w-auto rounded-md bg-[var(--color-accent-green)] px-8 py-2 font-medium text-black disabled:opacity-40"
       >
-        Submit best to leaderboard
+        Submit Best to Leaderboard
       </button>
       <span
         className={`text-xs ${
