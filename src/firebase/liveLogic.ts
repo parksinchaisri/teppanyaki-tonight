@@ -188,6 +188,26 @@ export interface RoundStanding {
   autoSubmitted: boolean;
 }
 
+// Submission time breaks ties and nothing else. It is deliberately absent from
+// RoundStanding: it never reaches a component, so there is nothing for the UI to
+// render even by accident.
+//
+// The rule this protects: score is the only thing that decides who outranks
+// whom. Timing is consulted only after two students prove identical, which on
+// Batching — where there are just two reachable scores — is most of the class.
+// A row with no usable timestamp sorts to the end of its tie group rather than
+// the front, so a malformed document cannot win a place it did not earn.
+const NO_TIMESTAMP = Number.MAX_SAFE_INTEGER;
+
+function byValueThenTime(ts: Map<string, number>) {
+  return (a: RoundStanding, b: RoundStanding): number => {
+    if (a.submitted !== b.submitted) return a.submitted ? -1 : 1;
+    if (b.value !== a.value) return b.value - a.value;
+    if (!a.submitted) return 0;
+    return (ts.get(a.studentId) || NO_TIMESTAMP) - (ts.get(b.studentId) || NO_TIMESTAMP);
+  };
+}
+
 // Ranking for a single challenge. Every roster member appears: students without
 // a result for the challenge sort to the bottom as "No submission".
 export function roundStandings(
@@ -226,10 +246,8 @@ export function roundStandings(
     });
   }
 
-  return out.sort((a, b) => {
-    if (a.submitted !== b.submitted) return a.submitted ? -1 : 1;
-    return b.value - a.value;
-  });
+  const submittedAt = new Map([...byStudent].map(([id, r]) => [id, r.lastSubmittedAt]));
+  return out.sort(byValueThenTime(submittedAt));
 }
 
 // Sum of each student's best avgProfit across every playlist challenge they have
@@ -240,20 +258,24 @@ export function cumulativeStandings(
   roster: StudentRow[] = [],
 ): RoundStanding[] {
   const active = new Set(activeChallenges);
-  const totals = new Map<string, { name: string; total: number; count: number }>();
+  const totals = new Map<string, { name: string; total: number; count: number; timeTotal: number }>();
 
   for (const s of roster) {
-    totals.set(s.id, { name: s.displayName, total: 0, count: 0 });
+    totals.set(s.id, { name: s.displayName, total: 0, count: 0, timeTotal: 0 });
   }
   for (const r of rows) {
     if (!active.has(r.challengeKey)) continue;
-    const cur = totals.get(r.studentId) ?? { name: r.studentName, total: 0, count: 0 };
+    const cur = totals.get(r.studentId) ?? { name: r.studentName, total: 0, count: 0, timeTotal: 0 };
     cur.total += r.bestAvgProfit;
     cur.count += 1;
+    // Summed across every challenge they have submitted, so the tiebreak
+    // reflects a whole session rather than one lucky early round.
+    cur.timeTotal += r.lastSubmittedAt;
     if (r.studentName) cur.name = r.studentName;
     totals.set(r.studentId, cur);
   }
 
+  const submittedAt = new Map([...totals].map(([id, v]) => [id, v.timeTotal]));
   return [...totals.entries()]
     .map(([studentId, v]) => ({
       studentId,
@@ -262,10 +284,7 @@ export function cumulativeStandings(
       submitted: v.count > 0,
       autoSubmitted: false,
     }))
-    .sort((a, b) => {
-      if (a.submitted !== b.submitted) return a.submitted ? -1 : 1;
-      return b.value - a.value;
-    });
+    .sort(byValueThenTime(submittedAt));
 }
 
 // Highest-avgProfit attempt per student for one challenge.

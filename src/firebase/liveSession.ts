@@ -274,13 +274,16 @@ export async function endRound(
     query(collection(db, 'classes', classCode, 'studentResults'), where('challengeKey', '==', challengeKey)),
   );
   const top5 = finalSnap.docs
-    .map((d) => d.data() as { studentId?: unknown; bestAvgProfit?: unknown })
+    .map((d) => d.data() as { studentId?: unknown; bestAvgProfit?: unknown; lastSubmittedAt?: unknown })
     .map((d) => ({
       studentId: String(d.studentId ?? ''),
       value: typeof d.bestAvgProfit === 'number' ? d.bestAvgProfit : 0,
+      at: typeof d.lastSubmittedAt === 'number' && d.lastSubmittedAt > 0 ? d.lastSubmittedAt : Number.MAX_SAFE_INTEGER,
     }))
     .filter((d) => d.studentId)
-    .sort((a, b) => b.value - a.value)
+    // Same tiebreak as the standings, so the recorded top 5 — and the streak
+    // badges built from it — agree with the board the room just watched.
+    .sort((a, b) => (b.value !== a.value ? b.value - a.value : a.at - b.at))
     .slice(0, 5)
     .map((d) => d.studentId);
 

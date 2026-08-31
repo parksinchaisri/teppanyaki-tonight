@@ -195,6 +195,63 @@ check('streak counts trailing rounds', streakFor(history, 'cy') === 2, `cy strea
 check('streak breaks on a missed round', streakFor([{ challengeKey: 'a', top5: ['ana'] }, { challengeKey: 'b', top5: ['bo'] }], 'ana') === 0, 'ana missed the latest round');
 check('no history → no streak', streakFor([], 'ana') === 0, 'fresh session');
 
+section('9a. Submission time breaks ties, and only ties');
+// Batching's two reachable scores put most of a class into two large tie groups.
+const tieRoster = [student('early'), student('late'), student('mid'), student('loser')];
+const tieRows = [
+  row('late', 'batching', 1218.4, { lastSubmittedAt: 5000 }),
+  row('early', 'batching', 1218.4, { lastSubmittedAt: 1000 }),
+  row('mid', 'batching', 1218.4, { lastSubmittedAt: 3000 }),
+  // A lower score submitted first — must never climb above the tie group.
+  row('loser', 'batching', 900, { lastSubmittedAt: 1 }),
+];
+const tied = roundStandings(tieRows, tieRoster, 'batching');
+check('earlier submitter wins a tie', tied[0].studentId === 'early', tied.map((t) => t.studentId).join(' > '));
+check('tie group orders by time', tied.slice(0, 3).map((t) => t.studentId).join(',') === 'early,mid,late', tied.slice(0, 3).map((t) => t.studentId).join(','));
+check('a lower score never outranks a higher one', tied[3].studentId === 'loser', 'earliest submission, still last');
+check('score still dominates timing', tied.every((t, i) => i === 0 || tied[i - 1].value >= t.value), 'values are non-increasing');
+
+// The reverse case: the higher score submitted last.
+const lateWinner = roundStandings(
+  [row('slowpoke', 'batching', 2000, { lastSubmittedAt: 9999 }), row('quick', 'batching', 1000, { lastSubmittedAt: 1 })],
+  [student('slowpoke'), student('quick')],
+  'batching',
+);
+check('a later high score still leads', lateWinner[0].studentId === 'slowpoke', `${lateWinner[0].studentId} first`);
+
+// A missing timestamp goes to the back of its own tie group, never the front.
+const noTs = roundStandings(
+  [row('blank', 'batching', 1218.4, { lastSubmittedAt: 0 }), row('stamped', 'batching', 1218.4, { lastSubmittedAt: 7000 })],
+  [student('blank'), student('stamped')],
+  'batching',
+);
+check('missing timestamp sorts last within its tie', noTs[0].studentId === 'stamped', `${noTs[0].studentId} first`);
+
+// Cumulative: identical totals, broken by summed submission times.
+const cumRoster = [student('a'), student('b')];
+const cumRows = [
+  row('a', 'batching', 1000, { lastSubmittedAt: 100 }),
+  row('a', 'barSize', 500, { lastSubmittedAt: 200 }),   // 1500 total, 300 time
+  row('b', 'batching', 500, { lastSubmittedAt: 400 }),
+  row('b', 'barSize', 1000, { lastSubmittedAt: 500 }),  // 1500 total, 900 time
+];
+const cumTied = cumulativeStandings(cumRows, PLAYLIST, cumRoster);
+check('cumulative tie breaks on summed time', cumTied[0].studentId === 'a', `${cumTied[0].studentId} leads`);
+check('cumulative totals are genuinely equal', cumTied[0].value === cumTied[1].value, `${cumTied[0].value} vs ${cumTied[1].value}`);
+const cumClear = cumulativeStandings(
+  [row('a', 'batching', 1000, { lastSubmittedAt: 100 }), row('b', 'batching', 1200, { lastSubmittedAt: 9999 })],
+  PLAYLIST,
+  cumRoster,
+);
+check('cumulative score still dominates timing', cumClear[0].studentId === 'b', `${cumClear[0].studentId} leads on 1200`);
+
+// Nothing about a tie may leak into what a component can render.
+check(
+  'no timing field reaches the standings rows',
+  Object.keys(tied[0]).sort().join(',') === 'autoSubmitted,studentId,studentName,submitted,value',
+  Object.keys(tied[0]).sort().join(','),
+);
+
 section('9b. Roster presence');
 const T = 1_000_000;
 check('fresh heartbeat is active', presenceStatus(T - 10_000, T) === 'active', '10s ago');
